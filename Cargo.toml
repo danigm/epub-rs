@@ -2,6 +2,12 @@
 name = "epub"
 version = "0.1.0"
 authors = ["Daniel García Moreno <danigm@wadobo.com>"]
+license = "GPLv3"
+repository = "https://github.com/danigm/epub-rs.git"
+keywords = ["epub", "ebook"]
+description = """
+Library to support the reading of epub files.
+"""
 
 [dependencies]
 zip = '0.2.0'
