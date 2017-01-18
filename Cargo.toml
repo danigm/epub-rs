@@ -8,6 +8,9 @@ keywords = ["epub", "ebook"]
 description = """
 Library to support the reading of epub files.
 """
+exclude = [
+    "test.epub",
+]
 
 [dependencies]
 zip = '0.2.0'
