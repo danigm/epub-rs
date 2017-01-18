@@ -29,7 +29,7 @@ fn archive_root_file() {
     assert!(archive.is_ok());
     let mut archive = archive.unwrap();
     let content = archive.get_entry("META-INF/container.xml");
-    let root = archive.get_root_file();
+    let root = archive.get_container_file();
     assert!(content.is_ok() && root.is_ok());
     assert_eq!(content.unwrap(), root.unwrap());
 }
@@ -40,7 +40,7 @@ fn archive_bin_entry() {
     let archive = EpubArchive::new("test.epub");
     assert!(archive.is_ok());
     let mut archive = archive.unwrap();
-    let content = archive.get_bin_entry("OEBPS/Images/portada.png");
+    let content = archive.get_entry("OEBPS/Images/portada.png");
     assert!(content.is_ok());
 
     let content = content.unwrap();

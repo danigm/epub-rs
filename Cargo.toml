@@ -14,3 +14,5 @@ exclude = [
 
 [dependencies]
 zip = '0.2.0'
+xml-rs = '0.3.5'
+regex = '0.2'
