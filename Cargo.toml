@@ -2,7 +2,7 @@
 name = "epub"
 version = "0.1.0"
 authors = ["Daniel García Moreno <danigm@wadobo.com>"]
-license = "GPLv3"
+license = "GPL-3.0"
 repository = "https://github.com/danigm/epub-rs.git"
 keywords = ["epub", "ebook"]
 description = """
