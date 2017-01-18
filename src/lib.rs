@@ -3,3 +3,5 @@
 
 pub mod archive;
 pub mod doc;
+
+mod xmlutils;

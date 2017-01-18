@@ -8,12 +8,12 @@ extern crate regex;
 
 use std::collections::HashMap;
 use std::error::Error;
-use std::io::BufReader;
-use std::fmt;
-
-use self::xml::reader::{EventReader, XmlEvent};
 
 use archive::EpubArchive;
+
+use self::xml::reader::EventReader;
+
+use xmlutils;
 
 /// Struct to control the epub document
 pub struct EpubDoc {
@@ -101,61 +101,10 @@ impl EpubDoc {
     //pub fn set_current_page(n: u32) {}
 }
 
-// TODO: move this to xmlutils.rs
-
-#[derive(Debug)]
-struct XMLError { error: String }
-
-impl Error for XMLError {
-    fn description(&self) -> &str { &self.error }
-}
-
-impl fmt::Display for XMLError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "XMLError: {}", self.error)
-    }
-}
-
-#[derive(Debug)]
-struct XMLNode {
-    name: xml::name::OwnedName,
-    attrs: Vec<xml::attribute::OwnedAttribute>,
-    namespace: xml::namespace::Namespace,
-}
-
-trait EasyXml {
-    fn get_element_by_tag(self, tag: &str) -> Result<XMLNode, XMLError>;
-}
-
-impl<'a> EasyXml for EventReader<&'a [u8]> {
-    fn get_element_by_tag(self, tag: &str) -> Result<XMLNode, XMLError> {
-        for e in self {
-            match e {
-                Ok(XmlEvent::StartElement { name, attributes, namespace}) => {
-                    if name.local_name == tag {
-                        return Ok(XMLNode {
-                            name: name,
-                            attrs: attributes,
-                            namespace: namespace });
-                    }
-                }
-                _ => { continue }
-            }
-        }
-        Err(XMLError { error: String::from("Not found") })
-    }
-}
-
 fn get_root_file(container: Vec<u8>) -> Result<String, Box<Error>> {
-    let parser = EventReader::new(container.as_slice());
-    let element = try!(parser.get_element_by_tag("rootfile"));
-    for attr in element.attrs {
-        if attr.name.local_name == "full-path" {
-            return Ok(attr.value);
-        }
-    }
+    let xml = xmlutils::XMLReader::new(container.as_slice());
+    let element = try!(xml.get_element_by_tag("rootfile"));
+    let path = try!(element.get_attr("full-path"));
 
-    Err(Box::new(XMLError {
-        error: String::from("full-path attr not found in rootfile")
-    }))
+    Ok(path)
 }
