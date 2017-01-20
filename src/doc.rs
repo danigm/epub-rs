@@ -11,8 +11,6 @@ use std::error::Error;
 
 use archive::EpubArchive;
 
-use self::xml::reader::EventReader;
-
 use xmlutils;
 
 /// Struct to control the epub document
@@ -21,10 +19,10 @@ pub struct EpubDoc {
     archive: EpubArchive,
 
     /// epub spine ids
-    spine: Vec<String>,
+    pub spine: Vec<String>,
 
     /// resource id -> name
-    resources: HashMap<String, String>,
+    pub resources: HashMap<String, (String, String)>,
 
     /// The current chapter, is an spine index
     current: u32,
@@ -49,7 +47,7 @@ impl EpubDoc {
     pub fn new(path: &str) -> Result<EpubDoc, Box<Error>> {
         let mut archive = try!(EpubArchive::new(path));
         let spine: Vec<String> = vec!();
-        let resources: HashMap<String, String> = HashMap::new();
+        let resources: HashMap<String, (String, String)> = HashMap::new();
 
         let container = try!(archive.get_container_file());
         let root_file = try!(get_root_file(container));
@@ -58,7 +56,7 @@ impl EpubDoc {
         let re = regex::Regex::new(r"/").unwrap();
         let iter: Vec<&str> = re.split(&root_file).collect();
         let count = iter.len();
-        let base_path = iter[count - 2];
+        let base_path = if count >= 2 { iter[count - 2] } else { "" };
 
         let mut doc = EpubDoc {
             archive: archive,
@@ -69,7 +67,7 @@ impl EpubDoc {
             current: 0,
         };
 
-        doc.fill_resources();
+        try!(doc.fill_resources());
 
         Ok(doc)
     }
@@ -104,32 +102,36 @@ impl EpubDoc {
     //pub fn get_current_page() -> u32 {}
     //pub fn set_current_page(n: u32) {}
 
-    fn fill_resources(&mut self) {
-        let container = self.archive.get_entry(&self.root_file);
-        if container.is_err() {
-            return;
-        }
-        let container = container.ok().unwrap();
+    fn fill_resources(&mut self) -> Result<(), Box<Error>> {
+        let container = try!(self.archive.get_entry(&self.root_file));
         let xml = xmlutils::XMLReader::new(container.as_slice());
-        let DOM = xml.parse_xml();
-        let x = DOM.unwrap();
-        let ref childs = x.borrow().childs;
-        for n in childs {
-            println!("{}", n.borrow().name.local_name);
-            if n.borrow().childs.len() > 0 {
-                let ref childs2 = n.borrow().childs;
-                for k in childs2 {
-                    println!("{}", k.borrow().name.local_name);
-                }
-            }
+        let root = try!(xml.parse_xml());
+        let manifest = try!(root.borrow().find("manifest"));
+        for r in manifest.borrow().childs.iter() {
+            let item = r.borrow();
+            let id = try!(item.get_attr("id"));
+            let href = try!(item.get_attr("href"));
+            let mtype = try!(item.get_attr("media-type"));
+            self.resources.insert(id, (href, mtype));
         }
+
+        let spine = try!(root.borrow().find("spine"));
+        for r in spine.borrow().childs.iter() {
+            let item = r.borrow();
+            let id = try!(item.get_attr("idref"));
+            self.spine.push(id);
+        }
+
+        Ok(())
     }
 }
 
 fn get_root_file(container: Vec<u8>) -> Result<String, Box<Error>> {
     let xml = xmlutils::XMLReader::new(container.as_slice());
-    let element = try!(xml.get_element_by_tag("rootfile"));
-    let path = try!(element.get_attr("full-path"));
+    let root = try!(xml.parse_xml());
+    let el = root.borrow();
+    let element = try!(el.find("rootfile"));
+    let el2 = element.borrow();
 
-    Ok(path)
+    Ok(try!(el2.get_attr("full-path")))
 }

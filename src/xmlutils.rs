@@ -7,6 +7,8 @@ use self::xml::reader::{EventReader, XmlEvent};
 use std::error::Error;
 use std::fmt;
 
+// Using RefCell because we need to edit the children vec during the parsing.
+// Using Arc because a Node will be referenced by its parent and by its childs.
 type ChildNodeRef = Arc<RefCell<XMLNode>>;
 type ParentNodeRef = Weak<RefCell<XMLNode>>;
 
@@ -19,7 +21,7 @@ impl<'a> XMLReader<'a> {
         XMLReader { reader: EventReader::new(content) }
     }
 
-    pub fn parse_xml(self) -> Option<RefCell<XMLNode>> {
+    pub fn parse_xml(self) -> Result<RefCell<XMLNode>, XMLError> {
         let mut root: Option<ChildNodeRef> = None;
         let mut parents: Vec<ChildNodeRef> = vec!();
 
@@ -31,12 +33,14 @@ impl<'a> XMLReader<'a> {
                         attrs: attributes,
                         namespace: namespace,
                         parent: None,
+                        text: None,
+                        cdata: None,
                         childs: vec!(),
                     };
-                    let mut arnode = Arc::new(RefCell::new(node));
+                    let arnode = Arc::new(RefCell::new(node));
 
                     {
-                        let mut current = parents.last();
+                        let current = parents.last();
                         if current.is_some() {
                             let c = current.unwrap();
                             c.borrow_mut().childs.push(arnode.clone());
@@ -49,9 +53,23 @@ impl<'a> XMLReader<'a> {
                         root = Some(arnode.clone());
                     }
                 }
-                Ok(XmlEvent::EndElement { name }) => {
+                Ok(XmlEvent::EndElement { .. }) => {
                     if parents.len() > 0 {
                         parents.pop();
+                    }
+                }
+                Ok(XmlEvent::Characters(text)) => {
+                    let current = parents.last();
+                    if current.is_some() {
+                        let c = current.unwrap();
+                        c.borrow_mut().text = Some(text);
+                    }
+                }
+                Ok(XmlEvent::CData(text)) => {
+                    let current = parents.last();
+                    if current.is_some() {
+                        let c = current.unwrap();
+                        c.borrow_mut().cdata = Some(text);
                     }
                 }
                 _ => continue
@@ -62,53 +80,11 @@ impl<'a> XMLReader<'a> {
             let r = root.unwrap();
             let a = Arc::try_unwrap(r);
             match a {
-                Ok(n) => return Some(n),
-                Err(_) => return None
+                Ok(n) => return Ok(n),
+                Err(_) => return Err(XMLError { error: String::from("Unknown error") })
             }
         }
-        None
-    }
-
-    pub fn get_element_by_tag(self, tag: &str) -> Result<XMLNode, XMLError> {
-        for e in self.reader {
-            match e {
-                Ok(XmlEvent::StartElement { name, attributes, namespace }) => {
-                    if name.local_name == tag {
-                        return Ok(XMLNode {
-                            name: name,
-                            attrs: attributes,
-                            namespace: namespace,
-                            parent: None,
-                            childs: vec!(),
-                        });
-                    }
-                }
-                _ => { continue }
-            }
-        }
-        Err(XMLError { error: String::from("Not found") })
-    }
-
-    pub fn get_elements_by_tag(self, tag: &str) -> Vec<XMLNode> {
-        let mut elements: Vec<XMLNode> = vec!();
-        for e in self.reader {
-            match e {
-                Ok(XmlEvent::StartElement { name, attributes, namespace }) => {
-                    if name.local_name == tag {
-                        let node = XMLNode {
-                            name: name,
-                            attrs: attributes,
-                            namespace: namespace,
-                            parent: None,
-                            childs: vec!(),
-                        };
-                        elements.push(node);
-                    }
-                }
-                _ => { continue }
-            }
-        }
-        elements
+        Err(XMLError { error: String::from("Not xml elements") })
     }
 }
 
@@ -130,18 +106,54 @@ pub struct XMLNode {
     pub name: xml::name::OwnedName,
     pub attrs: Vec<xml::attribute::OwnedAttribute>,
     pub namespace: xml::namespace::Namespace,
+    pub text: Option<String>,
+    pub cdata: Option<String>,
     pub parent: Option<ParentNodeRef>,
     pub childs: Vec<ChildNodeRef>,
 }
 
 impl XMLNode {
-    pub fn get_attr(self, name: &str) -> Result<String, XMLError> {
-        for attr in self.attrs {
+    pub fn get_attr(&self, name: &str) -> Result<String, XMLError> {
+        for attr in self.attrs.iter() {
             if attr.name.local_name == name {
-                return Ok(attr.value);
+                return Ok(attr.value.to_string());
             }
         }
 
         Err(XMLError { error: String::from("attr not found") })
+    }
+
+    pub fn find(&self, tag: &str) -> Result<ChildNodeRef, XMLError> {
+        for c in self.childs.iter() {
+            if c.borrow().name.local_name == tag {
+                return Ok(c.clone());
+            } else {
+                match c.borrow().find(tag) {
+                    Ok(n) => return Ok(n),
+                    _ => {}
+                }
+            }
+        }
+        Err(XMLError { error: String::from("tag not found") })
+    }
+}
+
+impl fmt::Display for XMLNode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let childs: String = self.childs.iter().fold(String::from(""), |sum, x| sum + &format!("{}", *x.borrow()) + "\n\t");
+        let attrs: String = self.attrs.iter().fold(String::from(""), |sum, x| sum + &x.name.local_name + ", ");
+
+        let t = self.text.as_ref();
+        let mut text = String::from("");
+        if t.is_some() {
+            text.clone_from(t.unwrap());
+        }
+
+        write!(f, "<{} [{}]>\n\t{}{}",
+            self.name.local_name,
+            attrs,
+            childs,
+            text
+        )
     }
 }
