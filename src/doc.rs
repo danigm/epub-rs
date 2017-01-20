@@ -60,14 +60,18 @@ impl EpubDoc {
         let count = iter.len();
         let base_path = iter[count - 2];
 
-        Ok(EpubDoc {
+        let mut doc = EpubDoc {
             archive: archive,
             spine: spine,
             resources: resources,
             root_file: root_file.clone(),
             root_base: String::from(base_path) + "/",
             current: 0,
-        })
+        };
+
+        doc.fill_resources();
+
+        Ok(doc)
     }
 
     //pub fn get_cover() -> Result<Vec<u8>, Box<Error>> {}
@@ -99,6 +103,27 @@ impl EpubDoc {
 
     //pub fn get_current_page() -> u32 {}
     //pub fn set_current_page(n: u32) {}
+
+    fn fill_resources(&mut self) {
+        let container = self.archive.get_entry(&self.root_file);
+        if container.is_err() {
+            return;
+        }
+        let container = container.ok().unwrap();
+        let xml = xmlutils::XMLReader::new(container.as_slice());
+        let DOM = xml.parse_xml();
+        let x = DOM.unwrap();
+        let ref childs = x.borrow().childs;
+        for n in childs {
+            println!("{}", n.borrow().name.local_name);
+            if n.borrow().childs.len() > 0 {
+                let ref childs2 = n.borrow().childs;
+                for k in childs2 {
+                    println!("{}", k.borrow().name.local_name);
+                }
+            }
+        }
+    }
 }
 
 fn get_root_file(container: Vec<u8>) -> Result<String, Box<Error>> {
