@@ -52,7 +52,7 @@ pub struct EpubDoc {
     pub metadata: HashMap<String, String>,
 
     /// The current chapter, is an spine index
-    current: u32,
+    current: usize,
 
     /// root file base path
     pub root_base: String,
@@ -246,6 +246,7 @@ impl EpubDoc {
     /// let mime = doc.get_resource_mime_by_path("OEBPS/Images/portada.png");
     /// assert_eq!("image/png", mime.unwrap());
     /// ```
+    ///
     /// # Errors
     ///
     /// Fails if the resource can't be found.
@@ -258,21 +259,180 @@ impl EpubDoc {
         Err(Box::new(DocError { error: String::from("path not found") }))
     }
 
-    //pub fn get_current() -> Result<Vec<u8>, Box<Error>> {}
-    //pub fn get_current_str() -> Result<String, Box<Error>> {}
+    /// Returns the current chapter content
+    ///
+    /// The current follows the epub spine order. You can modify the current
+    /// calling to `go_next`, `go_prev` or `set_current` methods.
+    ///
+    /// # Errors
+    ///
+    /// This call shouldn't fail, but can return an error if the epub doc is
+    /// broken.
+    pub fn get_current(&mut self) -> Result<Vec<u8>, Box<Error>> {
+        let current_id = try!(self.get_current_id());
+        self.get_resource(&current_id)
+    }
 
-    //pub fn get_current_mime() -> Result<String, Box<Error>> {}
+    pub fn get_current_str(&mut self) -> Result<String, Box<Error>> {
+        let current_id = try!(self.get_current_id());
+        self.get_resource_str(&current_id)
+    }
 
-    //pub fn get_current_path() -> Result<String, Box<Error>> {}
-    //pub fn get_current_id() -> Result<String, Box<Error>> {}
+    /// Returns the current chapter mimetype
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use epub::doc::EpubDoc;
+    /// # let doc = EpubDoc::new("test.epub");
+    /// # let doc = doc.unwrap();
+    /// let m = doc.get_current_mime();
+    /// assert_eq!("application/xhtml+xml", m.unwrap());
+    /// ```
+    pub fn get_current_mime(&self) -> Result<String, Box<Error>> {
+        let current_id = try!(self.get_current_id());
+        self.get_resource_mime(&current_id)
+    }
 
-    //pub fn go_next() -> Result<(), Box<Error>> {}
-    //pub fn go_prev() -> Result<(), Box<Error>> {}
+    /// Returns the current chapter full path
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use epub::doc::EpubDoc;
+    /// # let doc = EpubDoc::new("test.epub");
+    /// # let doc = doc.unwrap();
+    /// let p = doc.get_current_path();
+    /// assert_eq!("OEBPS/Text/titlepage.xhtml", p.unwrap());
+    /// ```
+    pub fn get_current_path(&self) -> Result<String, Box<Error>> {
+        let current_id = try!(self.get_current_id());
+        match self.resources.get(&current_id) {
+            Some(&(ref p, _)) => return Ok(p.to_string()),
+            None => return Err(Box::new(DocError { error: String::from("Current not found") }))
+        }
+    }
 
-    //pub fn get_num_pages() -> u32 {}
+    /// Returns the current chapter id
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use epub::doc::EpubDoc;
+    /// # let doc = EpubDoc::new("test.epub");
+    /// # let doc = doc.unwrap();
+    /// let id = doc.get_current_id();
+    /// assert_eq!("titlepage.xhtml", id.unwrap());
+    /// ```
+    pub fn get_current_id(&self) -> Result<String, Box<Error>> {
+        let current_id = self.spine.get(self.current);
+        match current_id {
+            Some(id) => return Ok(id.to_string()),
+            None => return Err(Box::new(DocError { error: String::from("current is broken") }))
+        }
+    }
 
-    //pub fn get_current_page() -> u32 {}
-    //pub fn set_current_page(n: u32) {}
+    /// Changes current to the next chapter
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use epub::doc::EpubDoc;
+    /// # let doc = EpubDoc::new("test.epub");
+    /// # let mut doc = doc.unwrap();
+    /// doc.go_next();
+    /// assert_eq!("000.xhtml", doc.get_current_id().unwrap());
+    ///
+    /// let len = doc.spine.len();
+    /// for i in 1..len {
+    ///     doc.go_next();
+    /// }
+    /// assert!(doc.go_next().is_err());
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// If the page is the last, will not change and an error will be returned
+    pub fn go_next(&mut self) -> Result<(), DocError> {
+        if self.current + 1 >= self.spine.len() {
+            return Err(DocError { error: String::from("last page") });
+        }
+        self.current += 1;
+        Ok(())
+    }
+
+    /// Changes current to the prev chapter
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use epub::doc::EpubDoc;
+    /// # let doc = EpubDoc::new("test.epub");
+    /// # let mut doc = doc.unwrap();
+    /// assert!(doc.go_prev().is_err());
+    ///
+    /// doc.go_next(); // 000.xhtml
+    /// doc.go_next(); // 001.xhtml
+    /// doc.go_next(); // 002.xhtml
+    /// doc.go_prev(); // 001.xhtml
+    /// assert_eq!("001.xhtml", doc.get_current_id().unwrap());
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// If the page is the first, will not change and an error will be returned
+    pub fn go_prev(&mut self) -> Result<(), DocError> {
+        if self.current < 1 {
+            return Err(DocError { error: String::from("first page") });
+        }
+        self.current -= 1;
+        Ok(())
+    }
+
+    /// Returns the number of chapters
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use epub::doc::EpubDoc;
+    /// # let doc = EpubDoc::new("test.epub");
+    /// # let mut doc = doc.unwrap();
+    /// assert_eq!(17, doc.get_num_pages());
+    /// ```
+    pub fn get_num_pages(&self) -> usize {
+        self.spine.len()
+    }
+
+    /// Returns the current chapter number, starting from 0
+    pub fn get_current_page(&self) -> usize {
+        self.current
+    }
+
+    /// Changes the current page
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use epub::doc::EpubDoc;
+    /// # let doc = EpubDoc::new("test.epub");
+    /// # let mut doc = doc.unwrap();
+    /// assert_eq!(0, doc.get_current_page());
+    /// doc.set_current_page(2);
+    /// assert_eq!("001.xhtml", doc.get_current_id().unwrap());
+    /// assert_eq!(2, doc.get_current_page());
+    /// assert!(doc.set_current_page(50).is_err());
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// If the page isn't valid, will not change and an error will be returned
+    pub fn set_current_page(&mut self, n: usize) -> Result<(), DocError> {
+        if n >= self.spine.len() {
+            return Err(DocError { error: String::from("page not valid") });
+        }
+        self.current = n;
+        Ok(())
+    }
 
     fn fill_resources(&mut self) -> Result<(), Box<Error>> {
         let container = try!(self.archive.get_entry(&self.root_file));
