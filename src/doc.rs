@@ -32,6 +32,9 @@ pub struct EpubDoc {
     /// the zip archive
     archive: EpubArchive,
 
+    /// The current chapter, is an spine index
+    current: usize,
+
     /// epub spine ids
     pub spine: Vec<String>,
 
@@ -50,9 +53,6 @@ pub struct EpubDoc {
     /// assert_eq!(title.unwrap(), "Todo es mío");
     /// ```
     pub metadata: HashMap<String, String>,
-
-    /// The current chapter, is an spine index
-    current: usize,
 
     /// root file base path
     pub root_base: String,
