@@ -67,6 +67,15 @@ impl EpubDoc {
     /// Initialize some internal variables to be able to access to the epub
     /// spine definition and to navigate trhough the epub.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use epub::doc::EpubDoc;
+    ///
+    /// let doc = EpubDoc::new("test.epub");
+    /// assert!(doc.is_ok());
+    /// ```
+    ///
     /// # Errors
     ///
     /// Returns an error if the epub is broken or if the file doesn't
