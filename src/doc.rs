@@ -38,7 +38,17 @@ pub struct EpubDoc {
     /// resource id -> name
     pub resources: HashMap<String, (String, String)>,
 
-    /// root file full path
+    /// The epub metadata stored as key -> value
+    ///
+    /// #Examples
+    ///
+    /// ```
+    /// # use epub::doc::EpubDoc;
+    /// # let doc = EpubDoc::new("test.epub");
+    /// # let doc = doc.unwrap();
+    /// let title = doc.metadata.get("title");
+    /// assert_eq!(title.unwrap(), "Todo es mío");
+    /// ```
     pub metadata: HashMap<String, String>,
 
     /// The current chapter, is an spine index
@@ -93,7 +103,30 @@ impl EpubDoc {
     /// Returns the id of the epub cover.
     ///
     /// The cover is searched in the doc metadata, by the tag <meta name="cover" value"..">
-    /// With the return of this method you can get the cover file calling to get_resource_by_id
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use epub::doc::EpubDoc;
+    ///
+    /// let doc = EpubDoc::new("test.epub");
+    /// assert!(doc.is_ok());
+    /// let mut doc = doc.unwrap();
+    ///
+    /// let cover_id = doc.get_cover_id().unwrap();
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the cover path can't be found.
+    pub fn get_cover_id(&self) -> Result<String, Box<Error>> {
+        match self.metadata.get("cover") {
+            Some(id) => Ok(id.to_string()),
+            None => Err(Box::new(DocError { error: String::from("Cover not found") }))
+        }
+    }
+
+    /// Returns the cover as Vec<u8>
     ///
     /// # Examples
     ///
@@ -105,26 +138,22 @@ impl EpubDoc {
     /// let doc = EpubDoc::new("test.epub");
     /// assert!(doc.is_ok());
     /// let mut doc = doc.unwrap();
-
-    /// let cover_id = doc.get_cover().unwrap();
-    /// let cover = doc.get_resource_by_id(&cover_id);
-    /// let cover_data = cover.unwrap();
-
+    ///
+    /// let cover_data = doc.get_cover().unwrap();
+    ///
     /// let f = fs::File::create("/tmp/cover.png");
     /// assert!(f.is_ok());
     /// let mut f = f.unwrap();
     /// let resp = f.write_all(&cover_data);
-    /// assert!(resp.is_ok());
     /// ```
     ///
     /// # Errors
     ///
-    /// Returns an error if the cover path can't be found.
-    pub fn get_cover(&self) -> Result<String, Box<Error>> {
-        match self.metadata.get("cover") {
-            Some(id) => Ok(id.to_string()),
-            None => Err(Box::new(DocError { error: String::from("Cover not found") }))
-        }
+    /// Returns an error if the cover can't be found.
+    pub fn get_cover(&mut self) -> Result<Vec<u8>, Box<Error>> {
+        let cover_id = try!(self.get_cover_id());
+        let cover_data = try!(self.get_resource(&cover_id));
+        Ok(cover_data)
     }
 
     /// Returns the resource content by full path in the epub archive
@@ -132,7 +161,7 @@ impl EpubDoc {
     /// # Errors
     ///
     /// Returns an error if the path doesn't exists in the epub
-    pub fn get_resource(&mut self, path: &str) -> Result<Vec<u8>, Box<Error>> {
+    pub fn get_resource_by_path(&mut self, path: &str) -> Result<Vec<u8>, Box<Error>> {
         let content = try!(self.archive.get_entry(path));
         Ok(content)
     }
@@ -142,12 +171,12 @@ impl EpubDoc {
     /// # Errors
     ///
     /// Returns an error if the id doesn't exists in the epub
-    pub fn get_resource_by_id(&mut self, id: &str) -> Result<Vec<u8>, Box<Error>> {
+    pub fn get_resource(&mut self, id: &str) -> Result<Vec<u8>, Box<Error>> {
         let path: String = match self.resources.get(id) {
             Some(s) => s.0.to_string(),
             None => return Err(Box::new(DocError { error: String::from("id not found") }))
         };
-        let content = try!(self.get_resource(&path));
+        let content = try!(self.get_resource_by_path(&path));
         Ok(content)
     }
 
@@ -156,7 +185,7 @@ impl EpubDoc {
     /// # Errors
     ///
     /// Returns an error if the path doesn't exists in the epub
-    pub fn get_resource_str(&mut self, path: &str) -> Result<String, Box<Error>> {
+    pub fn get_resource_str_by_path(&mut self, path: &str) -> Result<String, Box<Error>> {
         let content = try!(self.archive.get_entry_as_str(path));
         Ok(content)
     }
@@ -166,21 +195,59 @@ impl EpubDoc {
     /// # Errors
     ///
     /// Returns an error if the id doesn't exists in the epub
-    pub fn get_resource_by_id_str(&mut self, id: &str) -> Result<String, Box<Error>> {
+    pub fn get_resource_str(&mut self, id: &str) -> Result<String, Box<Error>> {
         let path: String = match self.resources.get(id) {
             Some(s) => s.0.to_string(),
             None => return Err(Box::new(DocError { error: String::from("id not found") }))
         };
-        let content = try!(self.get_resource_str(&path));
+        let content = try!(self.get_resource_str_by_path(&path));
         Ok(content)
     }
 
-    //pub fn get_metadata(mdata: &str) -> Result<String, Box<Error>> {}
+    /// Returns the resource mime-type
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use epub::doc::EpubDoc;
+    /// # let doc = EpubDoc::new("test.epub");
+    /// # let doc = doc.unwrap();
+    /// let mime = doc.get_resource_mime("portada.png");
+    /// assert_eq!("image/png", mime.unwrap());
+    /// ```
+    /// # Errors
+    ///
+    /// Fails if the resource can't be found.
+    pub fn get_resource_mime(&self, id: &str) -> Result<String, Box<Error>> {
+        match self.resources.get(id) {
+            Some(&(_, ref res)) => return Ok(res.to_string()),
+            None => {}
+        }
+        Err(Box::new(DocError { error: String::from("id not found") }))
+    }
 
-    //pub fn get_resources() -> Result<HashMap<String, String>, Box<Error>> {}
-
-    //pub fn get_resource_mime(path: &str) -> Result<String, Box<Error>> {}
-    //pub fn get_resource_mime_by_id(id: &str) -> Result<String, Box<Error>> {}
+    /// Returns the resource mime searching by source full path
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use epub::doc::EpubDoc;
+    /// # let doc = EpubDoc::new("test.epub");
+    /// # let doc = doc.unwrap();
+    /// let mime = doc.get_resource_mime_by_path("OEBPS/Images/portada.png");
+    /// assert_eq!("image/png", mime.unwrap());
+    /// ```
+    /// # Errors
+    ///
+    /// Fails if the resource can't be found.
+    pub fn get_resource_mime_by_path(&self, path: &str) -> Result<String, Box<Error>> {
+        for (_, v) in self.resources.iter() {
+            if v.0 == path {
+                return Ok(v.1.to_string());
+            }
+        }
+        Err(Box::new(DocError { error: String::from("path not found") }))
+    }
 
     //pub fn get_current() -> Result<Vec<u8>, Box<Error>> {}
     //pub fn get_current_str() -> Result<String, Box<Error>> {}

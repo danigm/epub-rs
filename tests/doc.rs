@@ -1,8 +1,5 @@
 extern crate epub;
 
-use std::fs;
-use std::io::Write;
-
 use epub::doc::EpubDoc;
 
 #[test]
@@ -30,7 +27,7 @@ fn doc_open() {
     }
 
     {
-        let cover = doc.get_cover();
+        let cover = doc.get_cover_id();
         assert_eq!(cover.unwrap(), "portada.png");
     }
 }
