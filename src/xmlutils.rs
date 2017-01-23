@@ -41,8 +41,7 @@ impl<'a> XMLReader<'a> {
 
                     {
                         let current = parents.last();
-                        if current.is_some() {
-                            let c = current.unwrap();
+                        if let Some(c) = current {
                             c.borrow_mut().childs.push(arnode.clone());
                             node.parent = Some(Arc::downgrade(&c));
                         }
@@ -60,15 +59,13 @@ impl<'a> XMLReader<'a> {
                 }
                 Ok(XmlEvent::Characters(text)) => {
                     let current = parents.last();
-                    if current.is_some() {
-                        let c = current.unwrap();
+                    if let Some(c) = current {
                         c.borrow_mut().text = Some(text);
                     }
                 }
                 Ok(XmlEvent::CData(text)) => {
                     let current = parents.last();
-                    if current.is_some() {
-                        let c = current.unwrap();
+                    if let Some(c) = current {
                         c.borrow_mut().cdata = Some(text);
                     }
                 }
@@ -76,8 +73,7 @@ impl<'a> XMLReader<'a> {
             }
         }
 
-        if root.is_some() {
-            let r = root.unwrap();
+        if let Some(r) = root {
             let a = Arc::try_unwrap(r);
             match a {
                 Ok(n) => return Ok(n),
@@ -145,8 +141,8 @@ impl fmt::Display for XMLNode {
 
         let t = self.text.as_ref();
         let mut text = String::from("");
-        if t.is_some() {
-            text.clone_from(t.unwrap());
+        if let Some(t) = t {
+            text.clone_from(t);
         }
 
         write!(f, "<{} [{}]>\n\t{}{}",
