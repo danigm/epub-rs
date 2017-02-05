@@ -9,6 +9,7 @@ extern crate regex;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
+use std::path::{Path, Component};
 
 use archive::EpubArchive;
 
@@ -278,6 +279,53 @@ impl EpubDoc {
         self.get_resource_str(&current_id)
     }
 
+
+    /// Returns the current chapter data, with resource uris renamed so they
+    /// have the epub:// prefix and all are relative to the root file
+    ///
+    /// This method is useful to render the content with a html engine, because inside the epub
+    /// local paths are relatives, so you can provide that content, because the engine will look
+    /// for the relative path in the filesystem and that file isn't there. You should provide files
+    /// with epub:// using the get_resource_by_path
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use epub::doc::EpubDoc;
+    /// # let mut doc = EpubDoc::new("test.epub").unwrap();
+    /// let current = doc.get_current_with_epub_uris().unwrap();
+    /// let text = String::from_utf8(current).unwrap();
+    /// assert!(text.contains("epub://OEBPS/Images/portada.png"));
+
+    /// doc.go_next();
+    /// let current = doc.get_current_with_epub_uris().unwrap();
+    /// let text = String::from_utf8(current).unwrap();
+    /// assert!(text.contains("epub://OEBPS/Styles/stylesheet.css"));
+    /// assert!(text.contains("http://creativecommons.org/licenses/by-sa/3.0/"));
+    /// ```
+    ///
+    pub fn get_current_with_epub_uris(&mut self) -> Result<Vec<u8>, Box<Error>> {
+        let path = try!(self.get_current_path());
+        let current = try!(self.get_current());
+
+        let resp = xmlutils::replace_attrs(current.as_slice(),
+            |element, attr, value| {
+                match (element, attr) {
+                    ("link", "href") => build_epub_uri(&path, value),
+                    ("img", "src") => build_epub_uri(&path, value),
+                    ("image", "xlink:href") => build_epub_uri(&path, value),
+                    ("a", "href") => build_epub_uri(&path, value),
+                    _ => String::from(value)
+                }
+            }
+        );
+
+        match resp {
+            Ok(a) => Ok(a),
+            Err(error) => Err(Box::new(DocError { error: error.error }))
+        }
+    }
+
     /// Returns the current chapter mimetype
     ///
     /// # Examples
@@ -484,4 +532,27 @@ fn get_root_file(container: Vec<u8>) -> Result<String, Box<Error>> {
     let el2 = element.borrow();
 
     Ok(try!(el2.get_attr("full-path")))
+}
+
+
+fn build_epub_uri(path: &str, append: &str) -> String {
+    // allowing external links
+    if append.starts_with("http") {
+        return String::from(append);
+    }
+
+    let cpath = Path::new(&path);
+    let mut cpath = cpath.to_path_buf();
+
+    // current file base dir
+    cpath.pop();
+    for p in Path::new(append).components() {
+        match p {
+            Component::ParentDir => { cpath.pop(); },
+            Component::Normal(s) => { cpath.push(s)},
+            _ => {}
+        };
+    }
+
+    String::from("epub://") + cpath.to_str().unwrap()
 }

@@ -3,9 +3,16 @@ extern crate xml;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::rc::Weak;
-use self::xml::reader::{EventReader, XmlEvent};
+use self::xml::reader::EventReader;
+
+use self::xml::reader::XmlEvent as ReaderEvent;
+use self::xml::writer::XmlEvent as WriterEvent;
+
+use self::xml::writer::EmitterConfig;
 use std::error::Error;
 use std::fmt;
+
+use std::borrow::Cow;
 
 // Using RefCell because we need to edit the children vec during the parsing.
 // Using rc because a Node will be referenced by its parent and by its childs.
@@ -27,7 +34,7 @@ impl<'a> XMLReader<'a> {
 
         for e in self.reader {
             match e {
-                Ok(XmlEvent::StartElement { name, attributes, namespace }) => {
+                Ok(ReaderEvent::StartElement { name, attributes, namespace }) => {
                     let mut node = XMLNode {
                         name: name,
                         attrs: attributes,
@@ -52,18 +59,18 @@ impl<'a> XMLReader<'a> {
                         root = Some(arnode.clone());
                     }
                 }
-                Ok(XmlEvent::EndElement { .. }) => {
+                Ok(ReaderEvent::EndElement { .. }) => {
                     if parents.len() > 0 {
                         parents.pop();
                     }
                 }
-                Ok(XmlEvent::Characters(text)) => {
+                Ok(ReaderEvent::Characters(text)) => {
                     let current = parents.last();
                     if let Some(c) = current {
                         c.borrow_mut().text = Some(text);
                     }
                 }
-                Ok(XmlEvent::CData(text)) => {
+                Ok(ReaderEvent::CData(text)) => {
                     let current = parents.last();
                     if let Some(c) = current {
                         c.borrow_mut().cdata = Some(text);
@@ -152,4 +159,53 @@ impl fmt::Display for XMLNode {
             text
         )
     }
+}
+
+pub fn replace_attrs<F>(xmldoc: &[u8], closure: F) -> Result<Vec<u8>, XMLError>
+    where F: Fn(&str, &str, &str) -> String {
+    let mut b = Vec::new();
+
+    {
+        let reader = EventReader::new(xmldoc);
+        let mut writer = EmitterConfig::default().perform_indent(true).create_writer(&mut b);
+
+        for e in reader {
+            match e {
+                ev @ Ok(ReaderEvent::StartElement { .. }) => {
+                    let ev = ev.unwrap();
+                    let mut attrs: Vec<xml::attribute::OwnedAttribute> = vec!();
+
+                    if let Some(WriterEvent::StartElement {name, attributes, namespace}) = ev.as_writer_event() {
+                        for i in 0..attributes.len() {
+                            let mut attr = attributes[i].to_owned();
+                            let repl = closure(&name.local_name, &attr.name.local_name, &attr.value);
+                            attr.value = repl;
+                            attrs.push(attr);
+                        }
+
+                        let w = WriterEvent::StartElement {
+                            name: name,
+                            attributes: Cow::Owned(attrs.iter().map(|x| x.borrow()).collect()),
+                            //attributes: attributes,
+                            namespace: namespace
+                        };
+                        if let Err(_) = writer.write(w) {
+                            return Err(XMLError { error: String::from("Problem writting") });
+                        }
+                    }
+                }
+                ev @ Ok(_) => {
+                    let ev = ev.unwrap();
+                    if let Some(e) = ev.as_writer_event() {
+                        if let Err(_) = writer.write(e) {
+                            return Err(XMLError { error: String::from("Problem writting") });
+                        }
+                    }
+                },
+                Err(_) => return Err(XMLError { error: String::from("Invalid XML") })
+            }
+        }
+    }
+
+    Ok(b)
 }
