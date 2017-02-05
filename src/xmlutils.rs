@@ -1,15 +1,15 @@
 extern crate xml;
 
 use std::cell::RefCell;
-use std::sync::Arc;
-use std::sync::Weak;
+use std::rc::Rc;
+use std::rc::Weak;
 use self::xml::reader::{EventReader, XmlEvent};
 use std::error::Error;
 use std::fmt;
 
 // Using RefCell because we need to edit the children vec during the parsing.
-// Using Arc because a Node will be referenced by its parent and by its childs.
-type ChildNodeRef = Arc<RefCell<XMLNode>>;
+// Using rc because a Node will be referenced by its parent and by its childs.
+type ChildNodeRef = Rc<RefCell<XMLNode>>;
 type ParentNodeRef = Weak<RefCell<XMLNode>>;
 
 pub struct XMLReader<'a> {
@@ -37,13 +37,13 @@ impl<'a> XMLReader<'a> {
                         cdata: None,
                         childs: vec!(),
                     };
-                    let arnode = Arc::new(RefCell::new(node));
+                    let arnode = Rc::new(RefCell::new(node));
 
                     {
                         let current = parents.last();
                         if let Some(c) = current {
                             c.borrow_mut().childs.push(arnode.clone());
-                            node.parent = Some(Arc::downgrade(&c));
+                            node.parent = Some(Rc::downgrade(&c));
                         }
                     }
                     parents.push(arnode.clone());
@@ -74,7 +74,7 @@ impl<'a> XMLReader<'a> {
         }
 
         if let Some(r) = root {
-            let a = Arc::try_unwrap(r);
+            let a = Rc::try_unwrap(r);
             match a {
                 Ok(n) => return Ok(n),
                 Err(_) => return Err(XMLError { error: String::from("Unknown error") })
