@@ -313,7 +313,7 @@ impl EpubDoc {
                 match (element, attr) {
                     ("link", "href") => build_epub_uri(&path, value),
                     ("img", "src") => build_epub_uri(&path, value),
-                    ("image", "xlink:href") => build_epub_uri(&path, value),
+                    ("image", "href") => build_epub_uri(&path, value),
                     ("a", "href") => build_epub_uri(&path, value),
                     _ => String::from(value)
                 }
