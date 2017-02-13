@@ -161,12 +161,18 @@ impl fmt::Display for XMLNode {
     }
 }
 
+// removing &nbsp; from xml
+fn clean_xml(xmldoc: &[u8]) -> Vec<u8> {
+    String::from_utf8_lossy(xmldoc).replace("&nbsp;", " ").into_bytes()
+}
+
 pub fn replace_attrs<F>(xmldoc: &[u8], closure: F) -> Result<Vec<u8>, XMLError>
     where F: Fn(&str, &str, &str) -> String {
     let mut b = Vec::new();
 
     {
-        let reader = EventReader::new(xmldoc);
+        let xml_cleaned = clean_xml(xmldoc);
+        let reader = EventReader::new(xml_cleaned.as_slice());
         let mut writer = EmitterConfig::default().perform_indent(true).create_writer(&mut b);
 
         for e in reader {
@@ -202,7 +208,7 @@ pub fn replace_attrs<F>(xmldoc: &[u8], closure: F) -> Result<Vec<u8>, XMLError>
                         }
                     }
                 },
-                Err(_) => return Err(XMLError { error: String::from("Invalid XML") })
+                Err(err) => return Err(XMLError { error: String::from(err.msg()) })
             }
         }
     }
