@@ -16,10 +16,14 @@ use archive::EpubArchive;
 use xmlutils;
 
 #[derive(Debug)]
-pub struct DocError { pub error: String }
+pub struct DocError {
+    pub error: String,
+}
 
 impl Error for DocError {
-    fn description(&self) -> &str { &self.error }
+    fn description(&self) -> &str {
+        &self.error
+    }
 }
 
 impl fmt::Display for DocError {
@@ -83,7 +87,7 @@ impl EpubDoc {
     /// exists.
     pub fn new(path: &str) -> Result<EpubDoc, Box<Error>> {
         let mut archive = try!(EpubArchive::new(path));
-        let spine: Vec<String> = vec!();
+        let spine: Vec<String> = vec![];
         let resources: HashMap<String, (String, String)> = HashMap::new();
 
         let container = try!(archive.get_container_file());
@@ -132,7 +136,7 @@ impl EpubDoc {
     pub fn get_cover_id(&self) -> Result<String, Box<Error>> {
         match self.metadata.get("cover") {
             Some(id) => Ok(id.to_string()),
-            None => Err(Box::new(DocError { error: String::from("Cover not found") }))
+            None => Err(Box::new(DocError { error: String::from("Cover not found") })),
         }
     }
 
@@ -184,7 +188,7 @@ impl EpubDoc {
     pub fn get_resource(&mut self, id: &str) -> Result<Vec<u8>, Box<Error>> {
         let path: String = match self.resources.get(id) {
             Some(s) => s.0.to_string(),
-            None => return Err(Box::new(DocError { error: String::from("id not found") }))
+            None => return Err(Box::new(DocError { error: String::from("id not found") })),
         };
         let content = try!(self.get_resource_by_path(&path));
         Ok(content)
@@ -208,7 +212,7 @@ impl EpubDoc {
     pub fn get_resource_str(&mut self, id: &str) -> Result<String, Box<Error>> {
         let path: String = match self.resources.get(id) {
             Some(s) => s.0.to_string(),
-            None => return Err(Box::new(DocError { error: String::from("id not found") }))
+            None => return Err(Box::new(DocError { error: String::from("id not found") })),
         };
         let content = try!(self.get_resource_str_by_path(&path));
         Ok(content)
@@ -309,20 +313,17 @@ impl EpubDoc {
         let current = try!(self.get_current());
 
         let resp = xmlutils::replace_attrs(current.as_slice(),
-            |element, attr, value| {
-                match (element, attr) {
-                    ("link", "href") => build_epub_uri(&path, value),
-                    ("img", "src") => build_epub_uri(&path, value),
-                    ("image", "href") => build_epub_uri(&path, value),
-                    ("a", "href") => build_epub_uri(&path, value),
-                    _ => String::from(value)
-                }
-            }
-        );
+                                           |element, attr, value| match (element, attr) {
+                                               ("link", "href") => build_epub_uri(&path, value),
+                                               ("img", "src") => build_epub_uri(&path, value),
+                                               ("image", "href") => build_epub_uri(&path, value),
+                                               ("a", "href") => build_epub_uri(&path, value),
+                                               _ => String::from(value),
+                                           });
 
         match resp {
             Ok(a) => Ok(a),
-            Err(error) => Err(Box::new(DocError { error: error.error }))
+            Err(error) => Err(Box::new(DocError { error: error.error })),
         }
     }
 
@@ -357,7 +358,7 @@ impl EpubDoc {
         let current_id = try!(self.get_current_id());
         match self.resources.get(&current_id) {
             Some(&(ref p, _)) => return Ok(p.to_string()),
-            None => return Err(Box::new(DocError { error: String::from("Current not found") }))
+            None => return Err(Box::new(DocError { error: String::from("Current not found") })),
         }
     }
 
@@ -376,7 +377,7 @@ impl EpubDoc {
         let current_id = self.spine.get(self.current);
         match current_id {
             Some(id) => return Ok(id.to_string()),
-            None => return Err(Box::new(DocError { error: String::from("current is broken") }))
+            None => return Err(Box::new(DocError { error: String::from("current is broken") })),
         }
     }
 
@@ -515,7 +516,10 @@ impl EpubDoc {
                 self.metadata.insert(k, v);
             } else {
                 let ref k = item.name.local_name;
-                let v = match item.text { Some(ref x) => x.to_string(), None => String::from("") };
+                let v = match item.text {
+                    Some(ref x) => x.to_string(),
+                    None => String::from(""),
+                };
                 self.metadata.insert(k.to_string(), v);
             }
         }
@@ -548,8 +552,10 @@ fn build_epub_uri(path: &str, append: &str) -> String {
     cpath.pop();
     for p in Path::new(append).components() {
         match p {
-            Component::ParentDir => { cpath.pop(); },
-            Component::Normal(s) => { cpath.push(s)},
+            Component::ParentDir => {
+                cpath.pop();
+            }
+            Component::Normal(s) => cpath.push(s),
             _ => {}
         };
     }

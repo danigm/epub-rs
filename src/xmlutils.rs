@@ -20,7 +20,7 @@ type ChildNodeRef = Rc<RefCell<XMLNode>>;
 type ParentNodeRef = Weak<RefCell<XMLNode>>;
 
 pub struct XMLReader<'a> {
-    reader: EventReader<&'a [u8]>
+    reader: EventReader<&'a [u8]>,
 }
 
 impl<'a> XMLReader<'a> {
@@ -30,7 +30,7 @@ impl<'a> XMLReader<'a> {
 
     pub fn parse_xml(self) -> Result<RefCell<XMLNode>, XMLError> {
         let mut root: Option<ChildNodeRef> = None;
-        let mut parents: Vec<ChildNodeRef> = vec!();
+        let mut parents: Vec<ChildNodeRef> = vec![];
 
         for e in self.reader {
             match e {
@@ -42,7 +42,7 @@ impl<'a> XMLReader<'a> {
                         parent: None,
                         text: None,
                         cdata: None,
-                        childs: vec!(),
+                        childs: vec![],
                     };
                     let arnode = Rc::new(RefCell::new(node));
 
@@ -76,7 +76,7 @@ impl<'a> XMLReader<'a> {
                         c.borrow_mut().cdata = Some(text);
                     }
                 }
-                _ => continue
+                _ => continue,
             }
         }
 
@@ -84,7 +84,7 @@ impl<'a> XMLReader<'a> {
             let a = Rc::try_unwrap(r);
             match a {
                 Ok(n) => return Ok(n),
-                Err(_) => return Err(XMLError { error: String::from("Unknown error") })
+                Err(_) => return Err(XMLError { error: String::from("Unknown error") }),
             }
         }
         Err(XMLError { error: String::from("Not xml elements") })
@@ -92,10 +92,14 @@ impl<'a> XMLReader<'a> {
 }
 
 #[derive(Debug)]
-pub struct XMLError { pub error: String }
+pub struct XMLError {
+    pub error: String,
+}
 
 impl Error for XMLError {
-    fn description(&self) -> &str { &self.error }
+    fn description(&self) -> &str {
+        &self.error
+    }
 }
 
 impl fmt::Display for XMLError {
@@ -143,8 +147,11 @@ impl XMLNode {
 
 impl fmt::Display for XMLNode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let childs: String = self.childs.iter().fold(String::from(""), |sum, x| sum + &format!("{}", *x.borrow()) + "\n\t");
-        let attrs: String = self.attrs.iter().fold(String::from(""), |sum, x| sum + &x.name.local_name + ", ");
+        let childs: String = self.childs.iter().fold(String::from(""), |sum, x| {
+            sum + &format!("{}", *x.borrow()) + "\n\t"
+        });
+        let attrs: String =
+            self.attrs.iter().fold(String::from(""), |sum, x| sum + &x.name.local_name + ", ");
 
         let t = self.text.as_ref();
         let mut text = String::from("");
@@ -152,12 +159,12 @@ impl fmt::Display for XMLNode {
             text.clone_from(t);
         }
 
-        write!(f, "<{} [{}]>\n\t{}{}",
-            self.name.local_name,
-            attrs,
-            childs,
-            text
-        )
+        write!(f,
+               "<{} [{}]>\n\t{}{}",
+               self.name.local_name,
+               attrs,
+               childs,
+               text)
     }
 }
 
@@ -167,7 +174,8 @@ fn clean_xml(xmldoc: &[u8]) -> Vec<u8> {
 }
 
 pub fn replace_attrs<F>(xmldoc: &[u8], closure: F) -> Result<Vec<u8>, XMLError>
-    where F: Fn(&str, &str, &str) -> String {
+    where F: Fn(&str, &str, &str) -> String
+{
     let mut b = Vec::new();
 
     {
@@ -179,12 +187,14 @@ pub fn replace_attrs<F>(xmldoc: &[u8], closure: F) -> Result<Vec<u8>, XMLError>
             match e {
                 ev @ Ok(ReaderEvent::StartElement { .. }) => {
                     let ev = ev.unwrap();
-                    let mut attrs: Vec<xml::attribute::OwnedAttribute> = vec!();
+                    let mut attrs: Vec<xml::attribute::OwnedAttribute> = vec![];
 
-                    if let Some(WriterEvent::StartElement {name, attributes, namespace}) = ev.as_writer_event() {
+                    if let Some(WriterEvent::StartElement { name, attributes, namespace }) =
+                        ev.as_writer_event() {
                         for i in 0..attributes.len() {
                             let mut attr = attributes[i].to_owned();
-                            let repl = closure(&name.local_name, &attr.name.local_name, &attr.value);
+                            let repl =
+                                closure(&name.local_name, &attr.name.local_name, &attr.value);
                             attr.value = repl;
                             attrs.push(attr);
                         }
@@ -193,7 +203,7 @@ pub fn replace_attrs<F>(xmldoc: &[u8], closure: F) -> Result<Vec<u8>, XMLError>
                             name: name,
                             attributes: Cow::Owned(attrs.iter().map(|x| x.borrow()).collect()),
                             //attributes: attributes,
-                            namespace: namespace
+                            namespace: namespace,
                         };
                         if let Err(_) = writer.write(w) {
                             return Err(XMLError { error: String::from("Problem writting") });
@@ -207,8 +217,8 @@ pub fn replace_attrs<F>(xmldoc: &[u8], closure: F) -> Result<Vec<u8>, XMLError>
                             return Err(XMLError { error: String::from("Problem writting") });
                         }
                     }
-                },
-                Err(err) => return Err(XMLError { error: String::from(err.msg()) })
+                }
+                Err(err) => return Err(XMLError { error: String::from(err.msg()) }),
             }
         }
     }

@@ -30,7 +30,7 @@ impl EpubArchive {
         let file = try!(fs::File::open(&fname));
 
         let mut zip = try!(zip::ZipArchive::new(file));
-        let mut files = vec!();
+        let mut files = vec![];
 
         for i in 0..(zip.len()) {
             let file = try!(zip.by_index(i));
@@ -40,7 +40,7 @@ impl EpubArchive {
         Ok(EpubArchive {
             zip: zip,
             path: String::from(path),
-            files: files
+            files: files,
         })
     }
 
@@ -50,7 +50,7 @@ impl EpubArchive {
     ///
     /// Returns an error if the name doesn't exists in the zip archive.
     pub fn get_entry(&mut self, name: &str) -> Result<Vec<u8>, Box<Error>> {
-        let mut entry: Vec<u8> = vec!();
+        let mut entry: Vec<u8> = vec![];
         let mut zipfile = try!(self.zip.by_name(name));
         try!(zipfile.read_to_end(&mut entry));
         Ok(entry)
