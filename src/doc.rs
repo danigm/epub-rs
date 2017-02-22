@@ -86,12 +86,12 @@ impl EpubDoc {
     /// Returns an error if the epub is broken or if the file doesn't
     /// exists.
     pub fn new(path: &str) -> Result<EpubDoc, Box<Error>> {
-        let mut archive = try!(EpubArchive::new(path));
+        let mut archive = EpubArchive::new(path)?;
         let spine: Vec<String> = vec![];
         let resources: HashMap<String, (String, String)> = HashMap::new();
 
-        let container = try!(archive.get_container_file());
-        let root_file = try!(get_root_file(container));
+        let container = archive.get_container_file()?;
+        let root_file = get_root_file(container)?;
 
         // getting the rootfile base directory
         let re = regex::Regex::new(r"/").unwrap();
@@ -109,7 +109,7 @@ impl EpubDoc {
             current: 0,
         };
 
-        try!(doc.fill_resources());
+        doc.fill_resources()?;
 
         Ok(doc)
     }
@@ -165,8 +165,8 @@ impl EpubDoc {
     ///
     /// Returns an error if the cover can't be found.
     pub fn get_cover(&mut self) -> Result<Vec<u8>, Box<Error>> {
-        let cover_id = try!(self.get_cover_id());
-        let cover_data = try!(self.get_resource(&cover_id));
+        let cover_id = self.get_cover_id()?;
+        let cover_data = self.get_resource(&cover_id)?;
         Ok(cover_data)
     }
 
@@ -176,7 +176,7 @@ impl EpubDoc {
     ///
     /// Returns an error if the path doesn't exists in the epub
     pub fn get_resource_by_path(&mut self, path: &str) -> Result<Vec<u8>, Box<Error>> {
-        let content = try!(self.archive.get_entry(path));
+        let content = self.archive.get_entry(path)?;
         Ok(content)
     }
 
@@ -190,7 +190,7 @@ impl EpubDoc {
             Some(s) => s.0.to_string(),
             None => return Err(Box::new(DocError { error: String::from("id not found") })),
         };
-        let content = try!(self.get_resource_by_path(&path));
+        let content = self.get_resource_by_path(&path)?;
         Ok(content)
     }
 
@@ -200,7 +200,7 @@ impl EpubDoc {
     ///
     /// Returns an error if the path doesn't exists in the epub
     pub fn get_resource_str_by_path(&mut self, path: &str) -> Result<String, Box<Error>> {
-        let content = try!(self.archive.get_entry_as_str(path));
+        let content = self.archive.get_entry_as_str(path)?;
         Ok(content)
     }
 
@@ -214,7 +214,7 @@ impl EpubDoc {
             Some(s) => s.0.to_string(),
             None => return Err(Box::new(DocError { error: String::from("id not found") })),
         };
-        let content = try!(self.get_resource_str_by_path(&path));
+        let content = self.get_resource_str_by_path(&path)?;
         Ok(content)
     }
 
@@ -274,12 +274,12 @@ impl EpubDoc {
     /// This call shouldn't fail, but can return an error if the epub doc is
     /// broken.
     pub fn get_current(&mut self) -> Result<Vec<u8>, Box<Error>> {
-        let current_id = try!(self.get_current_id());
+        let current_id = self.get_current_id()?;
         self.get_resource(&current_id)
     }
 
     pub fn get_current_str(&mut self) -> Result<String, Box<Error>> {
-        let current_id = try!(self.get_current_id());
+        let current_id = self.get_current_id()?;
         self.get_resource_str(&current_id)
     }
 
@@ -309,8 +309,8 @@ impl EpubDoc {
     /// ```
     ///
     pub fn get_current_with_epub_uris(&mut self) -> Result<Vec<u8>, Box<Error>> {
-        let path = try!(self.get_current_path());
-        let current = try!(self.get_current());
+        let path = self.get_current_path()?;
+        let current = self.get_current()?;
 
         let resp = xmlutils::replace_attrs(current.as_slice(),
                                            |element, attr, value| match (element, attr) {
@@ -339,7 +339,7 @@ impl EpubDoc {
     /// assert_eq!("application/xhtml+xml", m.unwrap());
     /// ```
     pub fn get_current_mime(&self) -> Result<String, Box<Error>> {
-        let current_id = try!(self.get_current_id());
+        let current_id = self.get_current_id()?;
         self.get_resource_mime(&current_id)
     }
 
@@ -355,7 +355,7 @@ impl EpubDoc {
     /// assert_eq!("OEBPS/Text/titlepage.xhtml", p.unwrap());
     /// ```
     pub fn get_current_path(&self) -> Result<String, Box<Error>> {
-        let current_id = try!(self.get_current_id());
+        let current_id = self.get_current_id()?;
         match self.resources.get(&current_id) {
             Some(&(ref p, _)) => return Ok(p.to_string()),
             None => return Err(Box::new(DocError { error: String::from("Current not found") })),
@@ -484,35 +484,35 @@ impl EpubDoc {
     }
 
     fn fill_resources(&mut self) -> Result<(), Box<Error>> {
-        let container = try!(self.archive.get_entry(&self.root_file));
+        let container = self.archive.get_entry(&self.root_file)?;
         let xml = xmlutils::XMLReader::new(container.as_slice());
-        let root = try!(xml.parse_xml());
+        let root = xml.parse_xml()?;
 
         // resources from manifest
-        let manifest = try!(root.borrow().find("manifest"));
+        let manifest = root.borrow().find("manifest")?;
         for r in manifest.borrow().childs.iter() {
             let item = r.borrow();
-            let id = try!(item.get_attr("id"));
-            let href = try!(item.get_attr("href"));
-            let mtype = try!(item.get_attr("media-type"));
+            let id = item.get_attr("id")?;
+            let href = item.get_attr("href")?;
+            let mtype = item.get_attr("media-type")?;
             self.resources.insert(id, (self.root_base.to_string() + &href, mtype));
         }
 
         // items from spine
-        let spine = try!(root.borrow().find("spine"));
+        let spine = root.borrow().find("spine")?;
         for r in spine.borrow().childs.iter() {
             let item = r.borrow();
-            let id = try!(item.get_attr("idref"));
+            let id = item.get_attr("idref")?;
             self.spine.push(id);
         }
 
         // metadata
-        let metadata = try!(root.borrow().find("metadata"));
+        let metadata = root.borrow().find("metadata")?;
         for r in metadata.borrow().childs.iter() {
             let item = r.borrow();
             if item.name.local_name == "meta" {
-                let k = try!(item.get_attr("name"));
-                let v = try!(item.get_attr("content"));
+                let k = item.get_attr("name")?;
+                let v = item.get_attr("content")?;
                 self.metadata.insert(k, v);
             } else {
                 let ref k = item.name.local_name;
@@ -530,12 +530,12 @@ impl EpubDoc {
 
 fn get_root_file(container: Vec<u8>) -> Result<String, Box<Error>> {
     let xml = xmlutils::XMLReader::new(container.as_slice());
-    let root = try!(xml.parse_xml());
+    let root = xml.parse_xml()?;
     let el = root.borrow();
-    let element = try!(el.find("rootfile"));
+    let element = el.find("rootfile")?;
     let el2 = element.borrow();
 
-    Ok(try!(el2.get_attr("full-path")))
+    Ok(el2.get_attr("full-path")?)
 }
 
 
