@@ -4,6 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::rc::Weak;
 use self::xml::reader::EventReader;
+use self::xml::reader::ParserConfig;
 
 use self::xml::reader::XmlEvent as ReaderEvent;
 use self::xml::writer::XmlEvent as WriterEvent;
@@ -25,7 +26,13 @@ pub struct XMLReader<'a> {
 
 impl<'a> XMLReader<'a> {
     pub fn new(content: &[u8]) -> XMLReader {
-        XMLReader { reader: EventReader::new(content) }
+        XMLReader {
+            reader: ParserConfig::new()
+                .add_entity("nbsp", ' ')
+                .add_entity("copy", '©')
+                .add_entity("reg", '®')
+                .create_reader(content)
+        }
     }
 
     pub fn parse_xml(self) -> Result<RefCell<XMLNode>, XMLError> {
@@ -168,19 +175,17 @@ impl fmt::Display for XMLNode {
     }
 }
 
-// removing &nbsp; from xml
-fn clean_xml(xmldoc: &[u8]) -> Vec<u8> {
-    String::from_utf8_lossy(xmldoc).replace("&nbsp;", " ").into_bytes()
-}
-
 pub fn replace_attrs<F>(xmldoc: &[u8], closure: F) -> Result<Vec<u8>, XMLError>
     where F: Fn(&str, &str, &str) -> String
 {
     let mut b = Vec::new();
 
     {
-        let xml_cleaned = clean_xml(xmldoc);
-        let reader = EventReader::new(xml_cleaned.as_slice());
+        let reader = ParserConfig::new()
+                .add_entity("nbsp", ' ')
+                .add_entity("copy", '©')
+                .add_entity("reg", '®')
+                .create_reader(xmldoc);
         let mut writer = EmitterConfig::default().perform_indent(true).create_writer(&mut b);
 
         for e in reader {
