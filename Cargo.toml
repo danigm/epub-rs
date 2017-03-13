@@ -1,6 +1,6 @@
 [package]
 name = "epub"
-version = "1.0.2"
+version = "1.0.3"
 authors = ["Daniel García Moreno <danigm@wadobo.com>"]
 license = "GPL-3.0"
 repository = "https://github.com/danigm/epub-rs.git"
