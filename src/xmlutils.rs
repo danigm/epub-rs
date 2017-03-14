@@ -5,11 +5,13 @@ use std::rc::Rc;
 use std::rc::Weak;
 use self::xml::reader::EventReader;
 use self::xml::reader::ParserConfig;
+use self::xml::reader::Error as ReaderError;
 
 use self::xml::reader::XmlEvent as ReaderEvent;
 use self::xml::writer::XmlEvent as WriterEvent;
 
 use self::xml::writer::EmitterConfig;
+use self::xml::writer::Error as EmitterError;
 use std::error::Error;
 use std::fmt;
 
@@ -115,6 +117,18 @@ impl fmt::Display for XMLError {
     }
 }
 
+impl From<EmitterError> for XMLError {
+    fn from(_: EmitterError) -> XMLError {
+        XMLError { error: String::from("Problem writting") }
+    }
+}
+
+impl From<ReaderError> for XMLError {
+    fn from(_: ReaderError) -> XMLError {
+        XMLError { error: String::from("Problem reading") }
+    }
+}
+
 #[derive(Debug)]
 pub struct XMLNode {
     pub name: xml::name::OwnedName,
@@ -175,7 +189,7 @@ impl fmt::Display for XMLNode {
     }
 }
 
-pub fn replace_attrs<F>(xmldoc: &[u8], closure: F) -> Result<Vec<u8>, XMLError>
+pub fn replace_attrs<F>(xmldoc: &[u8], closure: F, extra_css: &Vec<String>) -> Result<Vec<u8>, XMLError>
     where F: Fn(&str, &str, &str) -> String
 {
     let mut b = Vec::new();
@@ -210,17 +224,27 @@ pub fn replace_attrs<F>(xmldoc: &[u8], closure: F) -> Result<Vec<u8>, XMLError>
                             //attributes: attributes,
                             namespace: namespace,
                         };
-                        if let Err(_) = writer.write(w) {
-                            return Err(XMLError { error: String::from("Problem writting") });
-                        }
+                        writer.write(w)?;
                     }
                 }
+                Ok(ReaderEvent::EndElement { name: n }) => {
+                    if n.local_name.to_lowercase() == "head" && extra_css.len() > 0 {
+                        // injecting here the extra css
+                        let mut allcss = extra_css.concat();
+                        allcss = String::from("*/") + &allcss + "/*";
+
+                        writer.write(WriterEvent::start_element("style"))?;
+                        writer.write("/*")?;
+                        writer.write(WriterEvent::cdata(&allcss))?;
+                        writer.write("*/")?;
+                        writer.write(WriterEvent::end_element())?;
+
+                    }
+                    writer.write(WriterEvent::end_element())?;
+                }
                 ev @ Ok(_) => {
-                    let ev = ev.unwrap();
-                    if let Some(e) = ev.as_writer_event() {
-                        if let Err(_) = writer.write(e) {
-                            return Err(XMLError { error: String::from("Problem writting") });
-                        }
+                    if let Some(e) = ev?.as_writer_event() {
+                        writer.write(e)?;
                     }
                 }
                 Err(err) => return Err(XMLError { error: String::from(err.msg()) }),

@@ -64,6 +64,9 @@ pub struct EpubDoc {
 
     /// root file full path
     pub root_file: String,
+
+    /// Custom css list to inject in every xhtml file
+    pub extra_css: Vec<String>,
 }
 
 impl EpubDoc {
@@ -107,6 +110,7 @@ impl EpubDoc {
             root_file: root_file.clone(),
             root_base: String::from(base_path) + "/",
             current: 0,
+            extra_css: vec![],
         };
 
         doc.fill_resources()?;
@@ -319,7 +323,7 @@ impl EpubDoc {
                                                ("image", "href") => build_epub_uri(&path, value),
                                                ("a", "href") => build_epub_uri(&path, value),
                                                _ => String::from(value),
-                                           });
+                                           }, &self.extra_css);
 
         match resp {
             Ok(a) => Ok(a),
@@ -483,6 +487,26 @@ impl EpubDoc {
         Ok(())
     }
 
+    /// This will inject this css in every html page getted with the
+    /// get_current_with_epub_uris call
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use epub::doc::EpubDoc;
+    /// # let doc = EpubDoc::new("test.epub");
+    /// # let mut doc = doc.unwrap();
+    /// # let _ = doc.set_current_page(2);
+    /// let extracss = "body { background-color: black; color: white }";
+    /// doc.add_extra_css(extracss);
+    /// let current = doc.get_current_with_epub_uris().unwrap();
+    /// let text = String::from_utf8(current).unwrap();
+    /// assert!(text.contains(extracss));
+    /// ```
+    pub fn add_extra_css(&mut self, css: &str) {
+        self.extra_css.push(String::from(css));
+    }
+
     fn fill_resources(&mut self) -> Result<(), Box<Error>> {
         let container = self.archive.get_entry(&self.root_file)?;
         let xml = xmlutils::XMLReader::new(container.as_slice());
@@ -552,11 +576,9 @@ fn build_epub_uri(path: &str, append: &str) -> String {
     cpath.pop();
     for p in Path::new(append).components() {
         match p {
-            Component::ParentDir => {
-                cpath.pop();
-            }
-            Component::Normal(s) => cpath.push(s),
-            _ => {}
+            Component::ParentDir => { cpath.pop(); }
+            Component::Normal(s) => { cpath.push(s); }
+            _ => {},
         };
     }
 
