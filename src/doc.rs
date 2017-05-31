@@ -43,7 +43,7 @@ pub struct EpubDoc {
     /// epub spine ids
     pub spine: Vec<String>,
 
-    /// resource id -> name
+    /// resource id -> (path, mime)
     pub resources: HashMap<String, (String, String)>,
 
     /// The epub metadata stored as key -> value
