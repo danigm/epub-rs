@@ -30,9 +30,9 @@ impl<'a> XMLReader<'a> {
     pub fn new(content: &[u8]) -> XMLReader {
         XMLReader {
             reader: ParserConfig::new()
-                .add_entity("nbsp", ' ')
-                .add_entity("copy", '©')
-                .add_entity("reg", '®')
+                .add_entity("nbsp", " ")
+                .add_entity("copy", "©")
+                .add_entity("reg", "®")
                 .create_reader(content)
         }
     }
@@ -196,9 +196,9 @@ pub fn replace_attrs<F>(xmldoc: &[u8], closure: F, extra_css: &Vec<String>) -> R
 
     {
         let reader = ParserConfig::new()
-                .add_entity("nbsp", ' ')
-                .add_entity("copy", '©')
-                .add_entity("reg", '®')
+                .add_entity("nbsp", " ")
+                .add_entity("copy", "©")
+                .add_entity("reg", "®")
                 .create_reader(xmldoc);
         let mut writer = EmitterConfig::default().perform_indent(true).create_writer(&mut b);
 
