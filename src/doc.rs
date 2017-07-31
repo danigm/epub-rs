@@ -108,10 +108,14 @@ impl EpubDoc {
             resources: resources,
             metadata: HashMap::new(),
             root_file: root_file.clone(),
-            root_base: String::from(base_path) + "/",
+            root_base: String::from(base_path),
             current: 0,
             extra_css: vec![],
         };
+
+        if !doc.root_base.is_empty() {
+            doc.root_base = doc.root_base + "/";
+        }
 
         doc.fill_resources()?;
 
