@@ -22,7 +22,7 @@ fn doc_open() {
     }
 
     {
-        let title = doc.metadata.get("title");
+        let title = doc.mdata("title");
         assert_eq!(title.unwrap(), "Todo es mío");
     }
 

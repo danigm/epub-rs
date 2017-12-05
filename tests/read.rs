@@ -9,7 +9,7 @@ fn read_doc() {
     assert!(doc.is_ok());
     let mut doc = doc.unwrap();
 
-    if let Some(title) = doc.metadata.get("title") {
+    if let Some(title) = doc.mdata("title") {
         println!("Book title: {}", title);
     } else {
         println!("Book title not found");
@@ -33,4 +33,19 @@ fn read_doc() {
             Err(e) => println!("Text Err {:?}\n", e.description())
         }
     }
+}
+
+#[test]
+fn multiple_metadata() {
+    let input_file = "tests/docs/book2.epub";
+    let doc = EpubDoc::new(input_file);
+    assert!(doc.is_ok());
+    let doc = doc.unwrap();
+    if let Some(titles) = doc.metadata.get("title") {
+        assert_eq!(titles, &vec!["Metamorphosis ".to_string(), "Metamorphosis2 ".to_string()]);
+        println!("Book title: {:#?}", titles);
+    } else {
+        println!("Book title not found");
+    }
+
 }

@@ -55,9 +55,9 @@ pub struct EpubDoc {
     /// # let doc = EpubDoc::new("test.epub");
     /// # let doc = doc.unwrap();
     /// let title = doc.metadata.get("title");
-    /// assert_eq!(title.unwrap(), "Todo es mío");
+    /// assert_eq!(title.unwrap(), &vec!["Todo es mío".to_string()]);
     /// ```
-    pub metadata: HashMap<String, String>,
+    pub metadata: HashMap<String, Vec<String>>,
 
     /// root file base path
     pub root_base: String,
@@ -122,6 +122,23 @@ impl EpubDoc {
         Ok(doc)
     }
 
+    /// Returns the first metadata found with this name.
+    ///
+    /// #Examples
+    ///
+    /// ```
+    /// # use epub::doc::EpubDoc;
+    /// # let doc = EpubDoc::new("test.epub");
+    /// # let doc = doc.unwrap();
+    /// let title = doc.mdata("title");
+    /// assert_eq!(title.unwrap(), "Todo es mío");
+    pub fn mdata(&self, name: &str) -> Option<String> {
+        match self.metadata.get(name) {
+            Some(v) => v.get(0).cloned(),
+            None => None
+        }
+    }
+
     /// Returns the id of the epub cover.
     ///
     /// The cover is searched in the doc metadata, by the tag <meta name="cover" value"..">
@@ -142,7 +159,7 @@ impl EpubDoc {
     ///
     /// Returns an error if the cover path can't be found.
     pub fn get_cover_id(&self) -> Result<String, Box<Error>> {
-        match self.metadata.get("cover") {
+        match self.mdata("cover") {
             Some(id) => Ok(id.to_string()),
             None => Err(Box::new(DocError { error: String::from("Cover not found") })),
         }
@@ -541,14 +558,26 @@ impl EpubDoc {
             if item.name.local_name == "meta" {
                 let k = item.get_attr("name")?;
                 let v = item.get_attr("content")?;
-                self.metadata.insert(k, v);
+                if self.metadata.contains_key(&k) {
+                    if let Some(arr) = self.metadata.get_mut(&k) {
+                        arr.push(v);
+                    }
+                } else {
+                    self.metadata.insert(k, vec![v]);
+                }
             } else {
                 let ref k = item.name.local_name;
                 let v = match item.text {
                     Some(ref x) => x.to_string(),
                     None => String::from(""),
                 };
-                self.metadata.insert(k.to_string(), v);
+                if self.metadata.contains_key(k) {
+                    if let Some(arr) = self.metadata.get_mut(k) {
+                        arr.push(v);
+                    }
+                } else {
+                    self.metadata.insert(k.to_string(), vec![v]);
+                }
             }
         }
 

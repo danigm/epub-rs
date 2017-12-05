@@ -21,7 +21,7 @@
 //! # use epub::doc::EpubDoc;
 //! # let doc = EpubDoc::new("test.epub");
 //! # let doc = doc.unwrap();
-//! let title = doc.metadata.get("title");
+//! let title = doc.mdata("title");
 //! assert_eq!(title.unwrap(), "Todo es mío");
 //! ```
 //!
