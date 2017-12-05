@@ -30,7 +30,7 @@ fn read_doc() {
         let current = doc.get_current_str();
         match current {
             Ok(v) => println!("Value {:?}\n", v),
-            Err(e) => println!("Text Err {:?}\n", e.description())
+            Err(e) => println!("Text Err {:?}\n", e)
         }
     }
 }

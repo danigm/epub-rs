@@ -99,6 +99,8 @@
 //! let resp = f.write_all(&cover_data);
 //! ```
 
+#[macro_use] extern crate failure;
+
 mod xmlutils;
 
 pub mod archive;

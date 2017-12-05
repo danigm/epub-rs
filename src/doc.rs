@@ -7,30 +7,13 @@ extern crate xml;
 extern crate regex;
 
 use std::collections::HashMap;
-use std::error::Error;
-use std::fmt;
+use failure::Error;
 use std::path::{Path, Component};
 
 use archive::EpubArchive;
 
 use xmlutils;
 
-#[derive(Debug)]
-pub struct DocError {
-    pub error: String,
-}
-
-impl Error for DocError {
-    fn description(&self) -> &str {
-        &self.error
-    }
-}
-
-impl fmt::Display for DocError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "DocError: {}", self.error)
-    }
-}
 
 /// Struct to control the epub document
 pub struct EpubDoc {
@@ -88,7 +71,7 @@ impl EpubDoc {
     ///
     /// Returns an error if the epub is broken or if the file doesn't
     /// exists.
-    pub fn new(path: &str) -> Result<EpubDoc, Box<Error>> {
+    pub fn new(path: &str) -> Result<EpubDoc, Error> {
         let mut archive = EpubArchive::new(path)?;
         let spine: Vec<String> = vec![];
         let resources: HashMap<String, (String, String)> = HashMap::new();
@@ -158,10 +141,10 @@ impl EpubDoc {
     /// # Errors
     ///
     /// Returns an error if the cover path can't be found.
-    pub fn get_cover_id(&self) -> Result<String, Box<Error>> {
+    pub fn get_cover_id(&self) -> Result<String, Error> {
         match self.mdata("cover") {
             Some(id) => Ok(id.to_string()),
-            None => Err(Box::new(DocError { error: String::from("Cover not found") })),
+            None => Err(format_err!("Cover not found")),
         }
     }
 
@@ -189,7 +172,7 @@ impl EpubDoc {
     /// # Errors
     ///
     /// Returns an error if the cover can't be found.
-    pub fn get_cover(&mut self) -> Result<Vec<u8>, Box<Error>> {
+    pub fn get_cover(&mut self) -> Result<Vec<u8>, Error> {
         let cover_id = self.get_cover_id()?;
         let cover_data = self.get_resource(&cover_id)?;
         Ok(cover_data)
@@ -200,7 +183,7 @@ impl EpubDoc {
     /// # Errors
     ///
     /// Returns an error if the path doesn't exists in the epub
-    pub fn get_resource_by_path(&mut self, path: &str) -> Result<Vec<u8>, Box<Error>> {
+    pub fn get_resource_by_path(&mut self, path: &str) -> Result<Vec<u8>, Error> {
         let content = self.archive.get_entry(path)?;
         Ok(content)
     }
@@ -210,10 +193,10 @@ impl EpubDoc {
     /// # Errors
     ///
     /// Returns an error if the id doesn't exists in the epub
-    pub fn get_resource(&mut self, id: &str) -> Result<Vec<u8>, Box<Error>> {
+    pub fn get_resource(&mut self, id: &str) -> Result<Vec<u8>, Error> {
         let path: String = match self.resources.get(id) {
             Some(s) => s.0.to_string(),
-            None => return Err(Box::new(DocError { error: String::from("id not found") })),
+            None => return Err(format_err!("id not found")),
         };
         let content = self.get_resource_by_path(&path)?;
         Ok(content)
@@ -224,7 +207,7 @@ impl EpubDoc {
     /// # Errors
     ///
     /// Returns an error if the path doesn't exists in the epub
-    pub fn get_resource_str_by_path(&mut self, path: &str) -> Result<String, Box<Error>> {
+    pub fn get_resource_str_by_path(&mut self, path: &str) -> Result<String, Error> {
         let content = self.archive.get_entry_as_str(path)?;
         Ok(content)
     }
@@ -234,10 +217,10 @@ impl EpubDoc {
     /// # Errors
     ///
     /// Returns an error if the id doesn't exists in the epub
-    pub fn get_resource_str(&mut self, id: &str) -> Result<String, Box<Error>> {
+    pub fn get_resource_str(&mut self, id: &str) -> Result<String, Error> {
         let path: String = match self.resources.get(id) {
             Some(s) => s.0.to_string(),
-            None => return Err(Box::new(DocError { error: String::from("id not found") })),
+            None => return Err(format_err!("id not found")),
         };
         let content = self.get_resource_str_by_path(&path)?;
         Ok(content)
@@ -257,12 +240,12 @@ impl EpubDoc {
     /// # Errors
     ///
     /// Fails if the resource can't be found.
-    pub fn get_resource_mime(&self, id: &str) -> Result<String, Box<Error>> {
+    pub fn get_resource_mime(&self, id: &str) -> Result<String, Error> {
         match self.resources.get(id) {
             Some(&(_, ref res)) => return Ok(res.to_string()),
             None => {}
         }
-        Err(Box::new(DocError { error: String::from("id not found") }))
+        Err(format_err!("id not found"))
     }
 
     /// Returns the resource mime searching by source full path
@@ -280,13 +263,13 @@ impl EpubDoc {
     /// # Errors
     ///
     /// Fails if the resource can't be found.
-    pub fn get_resource_mime_by_path(&self, path: &str) -> Result<String, Box<Error>> {
+    pub fn get_resource_mime_by_path(&self, path: &str) -> Result<String, Error> {
         for (_, v) in self.resources.iter() {
             if v.0 == path {
                 return Ok(v.1.to_string());
             }
         }
-        Err(Box::new(DocError { error: String::from("path not found") }))
+        Err(format_err!("path not found"))
     }
 
     /// Returns the current chapter content
@@ -298,12 +281,12 @@ impl EpubDoc {
     ///
     /// This call shouldn't fail, but can return an error if the epub doc is
     /// broken.
-    pub fn get_current(&mut self) -> Result<Vec<u8>, Box<Error>> {
+    pub fn get_current(&mut self) -> Result<Vec<u8>, Error> {
         let current_id = self.get_current_id()?;
         self.get_resource(&current_id)
     }
 
-    pub fn get_current_str(&mut self) -> Result<String, Box<Error>> {
+    pub fn get_current_str(&mut self) -> Result<String, Error> {
         let current_id = self.get_current_id()?;
         self.get_resource_str(&current_id)
     }
@@ -333,7 +316,7 @@ impl EpubDoc {
     /// assert!(text.contains("http://creativecommons.org/licenses/by-sa/3.0/"));
     /// ```
     ///
-    pub fn get_current_with_epub_uris(&mut self) -> Result<Vec<u8>, Box<Error>> {
+    pub fn get_current_with_epub_uris(&mut self) -> Result<Vec<u8>, Error> {
         let path = self.get_current_path()?;
         let current = self.get_current()?;
 
@@ -348,7 +331,7 @@ impl EpubDoc {
 
         match resp {
             Ok(a) => Ok(a),
-            Err(error) => Err(Box::new(DocError { error: error.error })),
+            Err(error) => Err(format_err!("{}", error.error)),
         }
     }
 
@@ -363,7 +346,7 @@ impl EpubDoc {
     /// let m = doc.get_current_mime();
     /// assert_eq!("application/xhtml+xml", m.unwrap());
     /// ```
-    pub fn get_current_mime(&self) -> Result<String, Box<Error>> {
+    pub fn get_current_mime(&self) -> Result<String, Error> {
         let current_id = self.get_current_id()?;
         self.get_resource_mime(&current_id)
     }
@@ -379,11 +362,11 @@ impl EpubDoc {
     /// let p = doc.get_current_path();
     /// assert_eq!("OEBPS/Text/titlepage.xhtml", p.unwrap());
     /// ```
-    pub fn get_current_path(&self) -> Result<String, Box<Error>> {
+    pub fn get_current_path(&self) -> Result<String, Error> {
         let current_id = self.get_current_id()?;
         match self.resources.get(&current_id) {
             Some(&(ref p, _)) => return Ok(p.to_string()),
-            None => return Err(Box::new(DocError { error: String::from("Current not found") })),
+            None => return Err(format_err!("Current not found")),
         }
     }
 
@@ -398,11 +381,11 @@ impl EpubDoc {
     /// let id = doc.get_current_id();
     /// assert_eq!("titlepage.xhtml", id.unwrap());
     /// ```
-    pub fn get_current_id(&self) -> Result<String, Box<Error>> {
+    pub fn get_current_id(&self) -> Result<String, Error> {
         let current_id = self.spine.get(self.current);
         match current_id {
             Some(id) => return Ok(id.to_string()),
-            None => return Err(Box::new(DocError { error: String::from("current is broken") })),
+            None => return Err(format_err!("current is broken")),
         }
     }
 
@@ -427,9 +410,9 @@ impl EpubDoc {
     /// # Errors
     ///
     /// If the page is the last, will not change and an error will be returned
-    pub fn go_next(&mut self) -> Result<(), DocError> {
+    pub fn go_next(&mut self) -> Result<(), Error> {
         if self.current + 1 >= self.spine.len() {
-            return Err(DocError { error: String::from("last page") });
+            return Err(format_err!("last page"));
         }
         self.current += 1;
         Ok(())
@@ -455,9 +438,9 @@ impl EpubDoc {
     /// # Errors
     ///
     /// If the page is the first, will not change and an error will be returned
-    pub fn go_prev(&mut self) -> Result<(), DocError> {
+    pub fn go_prev(&mut self) -> Result<(), Error> {
         if self.current < 1 {
-            return Err(DocError { error: String::from("first page") });
+            return Err(format_err!("first page"));
         }
         self.current -= 1;
         Ok(())
@@ -500,9 +483,9 @@ impl EpubDoc {
     /// # Errors
     ///
     /// If the page isn't valid, will not change and an error will be returned
-    pub fn set_current_page(&mut self, n: usize) -> Result<(), DocError> {
+    pub fn set_current_page(&mut self, n: usize) -> Result<(), Error> {
         if n >= self.spine.len() {
-            return Err(DocError { error: String::from("page not valid") });
+            return Err(format_err!("page not valid"));
         }
         self.current = n;
         Ok(())
@@ -528,7 +511,7 @@ impl EpubDoc {
         self.extra_css.push(String::from(css));
     }
 
-    fn fill_resources(&mut self) -> Result<(), Box<Error>> {
+    fn fill_resources(&mut self) -> Result<(), Error> {
         let container = self.archive.get_entry(&self.root_file)?;
         let xml = xmlutils::XMLReader::new(container.as_slice());
         let root = xml.parse_xml()?;
@@ -585,7 +568,7 @@ impl EpubDoc {
     }
 }
 
-fn get_root_file(container: Vec<u8>) -> Result<String, Box<Error>> {
+fn get_root_file(container: Vec<u8>) -> Result<String, Error> {
     let xml = xmlutils::XMLReader::new(container.as_slice());
     let root = xml.parse_xml()?;
     let el = root.borrow();
