@@ -1,19 +1,20 @@
 [package]
-name = "epub"
-version = "1.0.5"
 authors = ["Daniel García Moreno <danigm@wadobo.com>"]
-license = "GPL-3.0"
-repository = "https://github.com/danigm/epub-rs.git"
-documentation = "https://danigm.github.io/epub-rs-doc/epub/index.html"
-keywords = ["epub", "ebook"]
 description = """
 Library to support the reading of epub files.
 """
-exclude = [
-    "test.epub",
+documentation = "https://danigm.github.io/epub-rs-doc/epub/index.html"
+exclude = ["test.epub"]
+keywords = [
+    "epub",
+    "ebook",
 ]
+license = "GPL-3.0"
+name = "epub"
+repository = "https://github.com/danigm/epub-rs.git"
+version = "1.0.5"
 
 [dependencies]
-zip = '0.2.5'
-xml-rs = '0.6.1'
-regex = '0.2.2'
+regex = "0.2.3"
+xml-rs = "0.7.0"
+zip = "0.2.6"
