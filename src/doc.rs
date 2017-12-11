@@ -539,14 +539,14 @@ impl EpubDoc {
         for r in metadata.borrow().childs.iter() {
             let item = r.borrow();
             if item.name.local_name == "meta" {
-                let k = item.get_attr("name")?;
-                let v = item.get_attr("content")?;
-                if self.metadata.contains_key(&k) {
-                    if let Some(arr) = self.metadata.get_mut(&k) {
-                        arr.push(v);
+                if let (Ok(k), Ok(v)) = (item.get_attr("name"), item.get_attr("content")) {
+                    if self.metadata.contains_key(&k) {
+                        if let Some(arr) = self.metadata.get_mut(&k) {
+                            arr.push(v);
+                        }
+                    } else {
+                        self.metadata.insert(k, vec![v]);
                     }
-                } else {
-                    self.metadata.insert(k, vec![v]);
                 }
             } else {
                 let ref k = item.name.local_name;
