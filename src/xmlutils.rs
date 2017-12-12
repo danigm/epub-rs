@@ -28,12 +28,18 @@ pub struct XMLReader<'a> {
 
 impl<'a> XMLReader<'a> {
     pub fn new(content: &[u8]) -> XMLReader {
+        //If there is a UTF-8 BOM marker, ignore it
+        let content_slice = if content[0..3]==[0xefu8, 0xbbu8, 0xbfu8] {
+            &content[3..]
+        } else {
+            content
+        };
         XMLReader {
             reader: ParserConfig::new()
                 .add_entity("nbsp", " ")
                 .add_entity("copy", "©")
                 .add_entity("reg", "®")
-                .create_reader(content)
+                .create_reader(content_slice)
         }
     }
 
