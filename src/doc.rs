@@ -598,5 +598,5 @@ fn build_epub_uri<P: AsRef<Path>>(path: P, append: &str) -> String {
         };
     }
 
-    format!("epub://{}", path.display())
+    format!("epub://{}", cpath.display())
 }
