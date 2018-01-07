@@ -71,7 +71,7 @@ impl EpubDoc {
     ///
     /// Returns an error if the epub is broken or if the file doesn't
     /// exists.
-    pub fn new(path: &str) -> Result<EpubDoc, Error> {
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<EpubDoc, Error> {
         let mut archive = EpubArchive::new(path)?;
         let spine: Vec<String> = vec![];
         let resources: HashMap<String, (String, String)> = HashMap::new();

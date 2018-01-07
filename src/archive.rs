@@ -6,7 +6,7 @@
 extern crate zip;
 
 use std::fs;
-use std::path;
+use std::path::{Path, PathBuf};
 use failure::Error;
 
 use std::io::Read;
@@ -15,7 +15,7 @@ use std::io::Read;
 /// files in the zip archive.
 pub struct EpubArchive {
     zip: zip::ZipArchive<fs::File>,
-    pub path: String,
+    pub path: PathBuf,
     pub files: Vec<String>,
 }
 
@@ -26,9 +26,9 @@ impl EpubArchive {
     ///
     /// Returns an error if the zip is broken or if the file doesn't
     /// exists.
-    pub fn new(path: &str) -> Result<EpubArchive, Error> {
-        let fname = path::Path::new(path);
-        let file = fs::File::open(&fname)?;
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<EpubArchive, Error> {
+        let path = path.as_ref();
+        let file = fs::File::open(path)?;
 
         let mut zip = zip::ZipArchive::new(file)?;
         let mut files = vec![];
@@ -40,7 +40,7 @@ impl EpubArchive {
 
         Ok(EpubArchive {
             zip: zip,
-            path: String::from(path),
+            path: path.to_path_buf(),
             files: files,
         })
     }
