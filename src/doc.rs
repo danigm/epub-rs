@@ -8,7 +8,7 @@ extern crate regex;
 
 use std::collections::HashMap;
 use failure::Error;
-use std::path::{Path, Component};
+use std::path::{Component, Path, PathBuf};
 
 use archive::EpubArchive;
 
@@ -27,7 +27,7 @@ pub struct EpubDoc {
     pub spine: Vec<String>,
 
     /// resource id -> (path, mime)
-    pub resources: HashMap<String, (String, String)>,
+    pub resources: HashMap<String, (PathBuf, String)>,
 
     /// The epub metadata stored as key -> value
     ///
@@ -43,10 +43,10 @@ pub struct EpubDoc {
     pub metadata: HashMap<String, Vec<String>>,
 
     /// root file base path
-    pub root_base: String,
+    pub root_base: PathBuf,
 
     /// root file full path
-    pub root_file: String,
+    pub root_file: PathBuf,
 
     /// Custom css list to inject in every xhtml file
     pub extra_css: Vec<String>,
@@ -74,16 +74,11 @@ impl EpubDoc {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<EpubDoc, Error> {
         let mut archive = EpubArchive::new(path)?;
         let spine: Vec<String> = vec![];
-        let resources: HashMap<String, (String, String)> = HashMap::new();
+        let resources = HashMap::new();
 
         let container = archive.get_container_file()?;
         let root_file = get_root_file(container)?;
-
-        // getting the rootfile base directory
-        let re = regex::Regex::new(r"/").unwrap();
-        let iter: Vec<&str> = re.split(&root_file).collect();
-        let count = iter.len();
-        let base_path = if count >= 2 { iter[count - 2] } else { "" };
+        let base_path = root_file.parent().expect("All files have a parent");
 
         let mut doc = EpubDoc {
             archive: archive,
@@ -91,14 +86,10 @@ impl EpubDoc {
             resources: resources,
             metadata: HashMap::new(),
             root_file: root_file.clone(),
-            root_base: String::from(base_path),
+            root_base: base_path.to_path_buf(),
             current: 0,
             extra_css: vec![],
         };
-
-        if !doc.root_base.is_empty() {
-            doc.root_base = doc.root_base + "/";
-        }
 
         doc.fill_resources()?;
 
@@ -183,7 +174,7 @@ impl EpubDoc {
     /// # Errors
     ///
     /// Returns an error if the path doesn't exists in the epub
-    pub fn get_resource_by_path(&mut self, path: &str) -> Result<Vec<u8>, Error> {
+    pub fn get_resource_by_path<P: AsRef<Path>>(&mut self, path: P) -> Result<Vec<u8>, Error> {
         let content = self.archive.get_entry(path)?;
         Ok(content)
     }
@@ -194,8 +185,8 @@ impl EpubDoc {
     ///
     /// Returns an error if the id doesn't exists in the epub
     pub fn get_resource(&mut self, id: &str) -> Result<Vec<u8>, Error> {
-        let path: String = match self.resources.get(id) {
-            Some(s) => s.0.to_string(),
+        let path = match self.resources.get(id) {
+            Some(s) => s.0.clone(),
             None => return Err(format_err!("id not found")),
         };
         let content = self.get_resource_by_path(&path)?;
@@ -207,7 +198,7 @@ impl EpubDoc {
     /// # Errors
     ///
     /// Returns an error if the path doesn't exists in the epub
-    pub fn get_resource_str_by_path(&mut self, path: &str) -> Result<String, Error> {
+    pub fn get_resource_str_by_path<P: AsRef<Path>>(&mut self, path: P) -> Result<String, Error> {
         let content = self.archive.get_entry_as_str(path)?;
         Ok(content)
     }
@@ -218,11 +209,11 @@ impl EpubDoc {
     ///
     /// Returns an error if the id doesn't exists in the epub
     pub fn get_resource_str(&mut self, id: &str) -> Result<String, Error> {
-        let path: String = match self.resources.get(id) {
-            Some(s) => s.0.to_string(),
+        let path = match self.resources.get(id) {
+            Some(s) => s.0.clone(),
             None => return Err(format_err!("id not found")),
         };
-        let content = self.get_resource_str_by_path(&path)?;
+        let content = self.get_resource_str_by_path(path)?;
         Ok(content)
     }
 
@@ -263,7 +254,9 @@ impl EpubDoc {
     /// # Errors
     ///
     /// Fails if the resource can't be found.
-    pub fn get_resource_mime_by_path(&self, path: &str) -> Result<String, Error> {
+    pub fn get_resource_mime_by_path<P: AsRef<Path>>(&self, path: P) -> Result<String, Error> {
+        let path = path.as_ref();
+
         for (_, v) in self.resources.iter() {
             if v.0 == path {
                 return Ok(v.1.to_string());
@@ -362,10 +355,10 @@ impl EpubDoc {
     /// let p = doc.get_current_path();
     /// assert_eq!("OEBPS/Text/titlepage.xhtml", p.unwrap());
     /// ```
-    pub fn get_current_path(&self) -> Result<String, Error> {
+    pub fn get_current_path(&self) -> Result<PathBuf, Error> {
         let current_id = self.get_current_id()?;
         match self.resources.get(&current_id) {
-            Some(&(ref p, _)) => return Ok(p.to_string()),
+            Some(&(ref p, _)) => return Ok(p.clone()),
             None => return Err(format_err!("Current not found")),
         }
     }
@@ -523,7 +516,8 @@ impl EpubDoc {
             let id = item.get_attr("id")?;
             let href = item.get_attr("href")?;
             let mtype = item.get_attr("media-type")?;
-            self.resources.insert(id, (self.root_base.to_string() + &href, mtype));
+            self.resources
+                .insert(id, (self.root_base.join(&href), mtype));
         }
 
         // items from spine
@@ -568,35 +562,40 @@ impl EpubDoc {
     }
 }
 
-fn get_root_file(container: Vec<u8>) -> Result<String, Error> {
+fn get_root_file(container: Vec<u8>) -> Result<PathBuf, Error> {
     let xml = xmlutils::XMLReader::new(container.as_slice());
     let root = xml.parse_xml()?;
     let el = root.borrow();
     let element = el.find("rootfile")?;
     let el2 = element.borrow();
 
-    Ok(el2.get_attr("full-path")?)
+    let attr = el2.get_attr("full-path")?;
+
+    Ok(PathBuf::from(attr))
 }
 
-
-fn build_epub_uri(path: &str, append: &str) -> String {
+fn build_epub_uri<P: AsRef<Path>>(path: P, append: &str) -> String {
     // allowing external links
     if append.starts_with("http") {
         return String::from(append);
     }
 
-    let cpath = Path::new(&path);
-    let mut cpath = cpath.to_path_buf();
+    let path = path.as_ref();
+    let mut cpath = path.to_path_buf();
 
     // current file base dir
     cpath.pop();
     for p in Path::new(append).components() {
         match p {
-            Component::ParentDir => { cpath.pop(); }
-            Component::Normal(s) => { cpath.push(s); }
+            Component::ParentDir => {
+                cpath.pop();
+            },
+            Component::Normal(s) => {
+                cpath.push(s);
+            },
             _ => {},
         };
     }
 
-    String::from("epub://") + cpath.to_str().unwrap()
+    format!("epub://{}", path.display())
 }

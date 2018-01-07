@@ -50,9 +50,10 @@ impl EpubArchive {
     /// # Errors
     ///
     /// Returns an error if the name doesn't exists in the zip archive.
-    pub fn get_entry(&mut self, name: &str) -> Result<Vec<u8>, Error> {
+    pub fn get_entry<P: AsRef<Path>>(&mut self, name: P) -> Result<Vec<u8>, Error> {
         let mut entry: Vec<u8> = vec![];
-        let mut zipfile = self.zip.by_name(name)?;
+        let name = name.as_ref().display().to_string();
+        let mut zipfile = self.zip.by_name(&name)?;
         zipfile.read_to_end(&mut entry)?;
         Ok(entry)
     }
@@ -62,11 +63,9 @@ impl EpubArchive {
     /// # Errors
     ///
     /// Returns an error if the name doesn't exists in the zip archive.
-    pub fn get_entry_as_str(&mut self, name: &str) -> Result<String, Error> {
-        let mut entry = String::new();
-        let mut zipfile = self.zip.by_name(name)?;
-        zipfile.read_to_string(&mut entry)?;
-        Ok(entry)
+    pub fn get_entry_as_str<P: AsRef<Path>>(&mut self, name: P) -> Result<String, Error> {
+        let content = self.get_entry(name)?;
+        String::from_utf8(content).map_err(Error::from)
     }
 
     /// Returns the content of container file "META-INF/container.xml".
