@@ -350,10 +350,11 @@ impl EpubDoc {
     ///
     /// ```
     /// # use epub::doc::EpubDoc;
+    /// # use std::path::Path;
     /// # let doc = EpubDoc::new("test.epub");
     /// # let doc = doc.unwrap();
     /// let p = doc.get_current_path();
-    /// assert_eq!("OEBPS/Text/titlepage.xhtml", p.unwrap());
+    /// assert_eq!(Path::new("OEBPS/Text/titlepage.xhtml"), p.unwrap());
     /// ```
     pub fn get_current_path(&self) -> Result<PathBuf, Error> {
         let current_id = self.get_current_id()?;
