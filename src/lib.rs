@@ -35,11 +35,12 @@
 //!
 //! ```
 //! # use epub::doc::EpubDoc;
+//! # use std::path::Path;
 //! # let doc = EpubDoc::new("test.epub");
 //! # let doc = doc.unwrap();
 //! assert_eq!(21, doc.resources.len());
 //! let tpage = doc.resources.get("titlepage.xhtml");
-//! assert_eq!(tpage.unwrap().0, "OEBPS/Text/titlepage.xhtml");
+//! assert_eq!(tpage.unwrap().0, Path::new("OEBPS/Text/titlepage.xhtml"));
 //! assert_eq!(tpage.unwrap().1, "application/xhtml+xml");
 //! ```
 //!
