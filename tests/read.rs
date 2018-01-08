@@ -19,10 +19,9 @@ fn read_doc() {
     {
         println!("resources:\n");
         for (k, v) in doc.resources.iter() {
-            println!("{}: {}\n * {}\n", k, v.1, v.0);
+            println!("{}: {}\n * {}\n", k, v.1, v.0.display());
         }
         println!("");
-
     }
 
     while let Ok(_) = doc.go_next() {
@@ -30,7 +29,7 @@ fn read_doc() {
         let current = doc.get_current_str();
         match current {
             Ok(v) => println!("Value {:?}\n", v),
-            Err(e) => println!("Text Err {:?}\n", e)
+            Err(e) => println!("Text Err {:?}\n", e),
         }
     }
 }

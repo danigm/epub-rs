@@ -9,9 +9,8 @@ fn archive_open() {
     let archive = EpubArchive::new("test.epub");
     assert!(archive.is_ok());
     let archive = archive.unwrap();
-    assert_eq!("test.epub", archive.path);
+    assert_eq!("test.epub", archive.path.display().to_string());
     assert_eq!(30, archive.files.len());
-
 }
 
 #[test]
