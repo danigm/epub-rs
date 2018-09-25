@@ -7,12 +7,44 @@ extern crate xml;
 extern crate regex;
 
 use std::collections::HashMap;
+use std::cmp::Ordering;
 use failure::Error;
+use failure::err_msg;
 use std::path::{Component, Path, PathBuf};
 
 use archive::EpubArchive;
 
 use xmlutils;
+
+
+/// Struct that represent a navigation point in a table of content
+#[derive(Eq)]
+pub struct NavPoint {
+    /// the title of this navpoint
+    pub label: String,
+    /// the resource path
+    pub content: PathBuf,
+    /// the order in the toc
+    pub play_order: usize,
+}
+
+impl Ord for NavPoint {
+    fn cmp(&self, other: &NavPoint) -> Ordering {
+        self.play_order.cmp(&other.play_order)
+    }
+}
+
+impl PartialOrd for NavPoint {
+    fn partial_cmp(&self, other: &NavPoint) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for NavPoint {
+    fn eq(&self, other: &NavPoint) -> bool {
+        self.play_order == other.play_order
+    }
+}
 
 
 /// Struct to control the epub document
@@ -28,6 +60,9 @@ pub struct EpubDoc {
 
     /// resource id -> (path, mime)
     pub resources: HashMap<String, (PathBuf, String)>,
+
+    /// table of content, list of `NavPoint` in the toc.ncx
+    pub toc: Vec<NavPoint>,
 
     /// The epub metadata stored as key -> value
     ///
@@ -83,6 +118,7 @@ impl EpubDoc {
         let mut doc = EpubDoc {
             archive: archive,
             spine: spine,
+            toc: vec![],
             resources: resources,
             metadata: HashMap::new(),
             root_file: root_file.clone(),
@@ -505,6 +541,27 @@ impl EpubDoc {
         self.extra_css.push(String::from(css));
     }
 
+    /// Function to convert a resource path to a chapter number in the spine
+    /// If the resourse isn't in the spine list, None will be returned
+    ///
+    /// This method is useful to convert a toc NavPoint content to a chapter number
+    /// to be able to navigate easily
+    pub fn resource_uri_to_chapter(&self, uri: &PathBuf) -> Option<usize> {
+        for (k, (path, _mime)) in self.resources.iter() {
+            if path == uri {
+                return self.resource_id_to_chapter(&k);
+            }
+        }
+
+        None
+    }
+
+    /// Function to convert a resource id to a chapter number in the spine
+    /// If the resourse isn't in the spine list, None will be returned
+    pub fn resource_id_to_chapter(&self, uri: &str) -> Option<usize> {
+        self.spine.iter().position(|item| item == uri)
+    }
+
     fn fill_resources(&mut self) -> Result<(), Error> {
         let container = self.archive.get_entry(&self.root_file)?;
         let xml = xmlutils::XMLReader::new(container.as_slice());
@@ -527,6 +584,11 @@ impl EpubDoc {
             let item = r.borrow();
             let id = item.get_attr("idref")?;
             self.spine.push(id);
+        }
+
+        // toc.ncx
+        if let Ok(toc) = spine.borrow().get_attr("toc") {
+            let _ = self.fill_toc(&toc);
         }
 
         // metadata
@@ -558,6 +620,52 @@ impl EpubDoc {
                 }
             }
         }
+
+        Ok(())
+    }
+
+    fn fill_toc(&mut self, id: &str) -> Result<(), Error> {
+        let toc_res = self.resources.get(id).ok_or(err_msg("No toc found"))?;
+
+        let container = self.archive.get_entry(&toc_res.0)?;
+        let xml = xmlutils::XMLReader::new(container.as_slice());
+        let root = xml.parse_xml()?;
+
+        let mapnode = root.borrow().find("navMap")?;
+
+        // TODO: get docTitle
+        // TODO: parse metadata (dtb:totalPageCount, dtb:depth, dtb:maxPageNumber)
+
+        for nav in mapnode.borrow().childs.iter() {
+            let item = nav.borrow();
+            if item.name.local_name != "navPoint" {
+                continue;
+            }
+            let play_order = item.get_attr("playOrder").ok()
+                .and_then(|n| usize::from_str_radix(&n, 10).ok());
+            let content = match item.find("content") {
+                Ok(c) => c.borrow().get_attr("src").ok()
+                          .map(|p| self.root_base.join(p)),
+                _ => None,
+            };
+            let label = match item.find("navLabel") {
+                Ok(l) => l.borrow()
+                          .childs.iter().next()
+                          .and_then(|t| t.borrow().text.clone()),
+                _ => None,
+            };
+
+            if let (Some(o), Some(c), Some(l)) = (play_order, content, label) {
+                let navpoint = NavPoint {
+                    label: l.clone(),
+                    content: c.clone(),
+                    play_order: o,
+                };
+                self.toc.push(navpoint);
+            }
+        }
+
+        self.toc.sort();
 
         Ok(())
     }

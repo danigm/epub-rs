@@ -32,3 +32,17 @@ fn doc_open() {
         assert_eq!(cover.unwrap(), "portada.png");
     }
 }
+
+#[test]
+fn toc_test() {
+    let doc = EpubDoc::new("test.epub");
+    assert!(doc.is_ok());
+    let doc = doc.unwrap();
+
+    assert!(doc.toc.len() > 0);
+    for nav in doc.toc.iter() {
+        let chapter = doc.resource_uri_to_chapter(&nav.content);
+        assert!(chapter.is_some());
+        assert_eq!(nav.play_order, chapter.unwrap());
+    }
+}
