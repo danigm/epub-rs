@@ -11,7 +11,7 @@ fn doc_open() {
     assert_eq!(Path::new("OEBPS"), doc.root_base);
     assert_eq!(Path::new("OEBPS/content.opf"), doc.root_file);
 
-    assert_eq!(21, doc.resources.len());
+    assert_eq!(23, doc.resources.len());
     {
         let tpage = doc.resources.get("titlepage.xhtml");
         assert_eq!(tpage.unwrap().0, Path::new("OEBPS/Text/titlepage.xhtml"));
