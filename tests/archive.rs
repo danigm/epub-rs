@@ -10,7 +10,7 @@ fn archive_open() {
     assert!(archive.is_ok());
     let archive = archive.unwrap();
     assert_eq!("test.epub", archive.path.display().to_string());
-    assert_eq!(30, archive.files.len());
+    assert_eq!(32, archive.files.len());
 }
 
 #[test]
@@ -19,6 +19,17 @@ fn archive_entry() {
     assert!(archive.is_ok());
     let mut archive = archive.unwrap();
     let content = archive.get_entry("META-INF/container.xml");
+    assert!(content.is_ok());
+}
+
+#[test]
+fn archive_entry_percent_encoding() {
+    let archive = EpubArchive::new("test.epub");
+    assert!(archive.is_ok());
+    let mut archive = archive.unwrap();
+    let content = archive.get_entry("a%20%25%20encoded%20item.xml");
+    assert!(content.is_ok());
+    let content = archive.get_entry("a%20normal%20item.xml");
     assert!(content.is_ok());
 }
 

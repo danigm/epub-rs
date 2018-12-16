@@ -4,6 +4,7 @@
 //! the content as string.
 
 extern crate zip;
+extern crate percent_encoding;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -53,6 +54,19 @@ impl EpubArchive {
     pub fn get_entry<P: AsRef<Path>>(&mut self, name: P) -> Result<Vec<u8>, Error> {
         let mut entry: Vec<u8> = vec![];
         let name = name.as_ref().display().to_string();
+        match self.zip.by_name(&name) {
+            Ok(mut zipfile) => {
+                zipfile.read_to_end(&mut entry)?;
+                return Ok(entry);
+            },
+            Err(zip::result::ZipError::FileNotFound) => {},
+            Err(e) => {
+                return Err(e.into());
+            },
+        };
+
+        // try percent encoding
+        let name = self::percent_encoding::percent_decode(name.as_str().as_bytes()).decode_utf8()?;
         let mut zipfile = self.zip.by_name(&name)?;
         zipfile.read_to_end(&mut entry)?;
         Ok(entry)
