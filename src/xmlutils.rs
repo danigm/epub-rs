@@ -50,7 +50,7 @@ impl<'a> XMLReader<'a> {
         for e in self.reader {
             match e {
                 Ok(ReaderEvent::StartElement { name, attributes, namespace }) => {
-                    let mut node = XMLNode {
+                    let node = XMLNode {
                         name: name,
                         attrs: attributes,
                         namespace: namespace,
@@ -65,7 +65,7 @@ impl<'a> XMLReader<'a> {
                         let current = parents.last();
                         if let Some(c) = current {
                             c.borrow_mut().childs.push(arnode.clone());
-                            node.parent = Some(Rc::downgrade(&c));
+                            arnode.borrow_mut().parent = Some(Rc::downgrade(&c));
                         }
                     }
                     parents.push(arnode.clone());
