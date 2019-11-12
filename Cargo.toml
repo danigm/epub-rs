@@ -3,6 +3,7 @@ authors = ["Daniel García Moreno <danigm@wadobo.com>"]
 description = """
 Library to support the reading of epub files.
 """
+documentation = "https://docs.rs/epub/"
 exclude = ["test.epub"]
 keywords = [
     "epub",
@@ -11,7 +12,7 @@ keywords = [
 license = "GPL-3.0"
 name = "epub"
 repository = "https://github.com/danigm/epub-rs.git"
-version = "1.2.1"
+version = "1.2.2"
 edition = "2018"
 
 [dependencies]
