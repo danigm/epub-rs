@@ -3,19 +3,15 @@
 //! Provides easy methods to navigate througth the epub content, cover,
 //! chapters, etc.
 
-
-
-
-use std::collections::HashMap;
-use std::cmp::Ordering;
-use failure::Error;
 use failure::err_msg;
+use failure::Error;
+use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 
 use crate::archive::EpubArchive;
 
 use crate::xmlutils;
-
 
 /// Struct that represent a navigation point in a table of content
 #[derive(Eq)]
@@ -45,7 +41,6 @@ impl PartialEq for NavPoint {
         self.play_order == other.play_order
     }
 }
-
 
 /// Struct to control the epub document
 pub struct EpubDoc {
@@ -116,10 +111,10 @@ impl EpubDoc {
         let base_path = root_file.parent().expect("All files have a parent");
 
         let mut doc = EpubDoc {
-            archive: archive,
-            spine: spine,
+            archive,
+            spine,
             toc: vec![],
-            resources: resources,
+            resources,
             metadata: HashMap::new(),
             root_file: root_file.clone(),
             root_base: base_path.to_path_buf(),
@@ -145,7 +140,7 @@ impl EpubDoc {
     pub fn mdata(&self, name: &str) -> Option<String> {
         match self.metadata.get(name) {
             Some(v) => v.get(0).cloned(),
-            None => None
+            None => None,
         }
     }
 
@@ -170,7 +165,7 @@ impl EpubDoc {
     /// Returns an error if the cover path can't be found.
     pub fn get_cover_id(&self) -> Result<String, Error> {
         match self.mdata("cover") {
-            Some(id) => Ok(id.to_string()),
+            Some(id) => Ok(id),
             None => Err(format_err!("Cover not found")),
         }
     }
@@ -268,9 +263,8 @@ impl EpubDoc {
     ///
     /// Fails if the resource can't be found.
     pub fn get_resource_mime(&self, id: &str) -> Result<String, Error> {
-        match self.resources.get(id) {
-            Some(&(_, ref res)) => return Ok(res.to_string()),
-            None => {}
+        if let Some(&(_, ref res)) = self.resources.get(id) {
+            return Ok(res.to_string());
         }
         Err(format_err!("id not found"))
     }
@@ -320,7 +314,6 @@ impl EpubDoc {
         self.get_resource_str(&current_id)
     }
 
-
     /// Returns the current chapter data, with resource uris renamed so they
     /// have the epub:// prefix and all are relative to the root file
     ///
@@ -349,14 +342,17 @@ impl EpubDoc {
         let path = self.get_current_path()?;
         let current = self.get_current()?;
 
-        let resp = xmlutils::replace_attrs(current.as_slice(),
-                                           |element, attr, value| match (element, attr) {
-                                               ("link", "href") => build_epub_uri(&path, value),
-                                               ("img", "src") => build_epub_uri(&path, value),
-                                               ("image", "href") => build_epub_uri(&path, value),
-                                               ("a", "href") => build_epub_uri(&path, value),
-                                               _ => String::from(value),
-                                           }, &self.extra_css);
+        let resp = xmlutils::replace_attrs(
+            current.as_slice(),
+            |element, attr, value| match (element, attr) {
+                ("link", "href") => build_epub_uri(&path, value),
+                ("img", "src") => build_epub_uri(&path, value),
+                ("image", "href") => build_epub_uri(&path, value),
+                ("a", "href") => build_epub_uri(&path, value),
+                _ => String::from(value),
+            },
+            &self.extra_css,
+        );
 
         match resp {
             Ok(a) => Ok(a),
@@ -395,8 +391,8 @@ impl EpubDoc {
     pub fn get_current_path(&self) -> Result<PathBuf, Error> {
         let current_id = self.get_current_id()?;
         match self.resources.get(&current_id) {
-            Some(&(ref p, _)) => return Ok(p.clone()),
-            None => return Err(format_err!("Current not found")),
+            Some(&(ref p, _)) => Ok(p.clone()),
+            None => Err(format_err!("Current not found")),
         }
     }
 
@@ -414,8 +410,8 @@ impl EpubDoc {
     pub fn get_current_id(&self) -> Result<String, Error> {
         let current_id = self.spine.get(self.current);
         match current_id {
-            Some(id) => return Ok(id.to_string()),
-            None => return Err(format_err!("current is broken")),
+            Some(id) => Ok(id.to_string()),
+            None => Err(format_err!("current is broken")),
         }
     }
 
@@ -606,7 +602,7 @@ impl EpubDoc {
                     }
                 }
             } else {
-                let ref k = item.name.local_name;
+                let k = &item.name.local_name;
                 let v = match item.text {
                     Some(ref x) => x.to_string(),
                     None => String::from(""),
@@ -625,7 +621,10 @@ impl EpubDoc {
     }
 
     fn fill_toc(&mut self, id: &str) -> Result<(), Error> {
-        let toc_res = self.resources.get(id).ok_or(err_msg("No toc found"))?;
+        let toc_res = self
+            .resources
+            .get(id)
+            .ok_or_else(|| err_msg("No toc found"))?;
 
         let container = self.archive.get_entry(&toc_res.0)?;
         let xml = xmlutils::XMLReader::new(container.as_slice());
@@ -641,17 +640,25 @@ impl EpubDoc {
             if item.name.local_name != "navPoint" {
                 continue;
             }
-            let play_order = item.get_attr("playOrder").ok()
+            let play_order = item
+                .get_attr("playOrder")
+                .ok()
                 .and_then(|n| usize::from_str_radix(&n, 10).ok());
             let content = match item.find("content") {
-                Ok(c) => c.borrow().get_attr("src").ok()
-                          .map(|p| self.root_base.join(p)),
+                Ok(c) => c
+                    .borrow()
+                    .get_attr("src")
+                    .ok()
+                    .map(|p| self.root_base.join(p)),
                 _ => None,
             };
             let label = match item.find("navLabel") {
-                Ok(l) => l.borrow()
-                          .childs.iter().next()
-                          .and_then(|t| t.borrow().text.clone()),
+                Ok(l) => l
+                    .borrow()
+                    .childs
+                    .iter()
+                    .next()
+                    .and_then(|t| t.borrow().text.clone()),
                 _ => None,
             };
 
@@ -698,11 +705,11 @@ fn build_epub_uri<P: AsRef<Path>>(path: P, append: &str) -> String {
         match p {
             Component::ParentDir => {
                 cpath.pop();
-            },
+            }
             Component::Normal(s) => {
                 cpath.push(s);
-            },
-            _ => {},
+            }
+            _ => {}
         };
     }
 

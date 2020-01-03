@@ -41,10 +41,12 @@ fn multiple_metadata() {
     assert!(doc.is_ok());
     let doc = doc.unwrap();
     if let Some(titles) = doc.metadata.get("title") {
-        assert_eq!(titles, &vec!["Metamorphosis ".to_string(), "Metamorphosis2 ".to_string()]);
+        assert_eq!(
+            titles,
+            &vec!["Metamorphosis ".to_string(), "Metamorphosis2 ".to_string()]
+        );
         println!("Book title: {:#?}", titles);
     } else {
         println!("Book title not found");
     }
-
 }
