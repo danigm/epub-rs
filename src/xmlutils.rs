@@ -1,4 +1,4 @@
-extern crate xml;
+use xml;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -27,7 +27,7 @@ pub struct XMLReader<'a> {
 }
 
 impl<'a> XMLReader<'a> {
-    pub fn new(content: &[u8]) -> XMLReader {
+    pub fn new(content: &[u8]) -> XMLReader<'_> {
         //If there is a UTF-8 BOM marker, ignore it
         let content_slice = if content[0..3]==[0xefu8, 0xbbu8, 0xbfu8] {
             &content[3..]
@@ -118,7 +118,7 @@ impl Error for XMLError {
 }
 
 impl fmt::Display for XMLError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "XMLError: {}", self.error)
     }
 }
@@ -173,7 +173,7 @@ impl XMLNode {
 }
 
 impl fmt::Display for XMLNode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let childs: String = self.childs.iter().fold(String::from(""), |sum, x| {
             sum + &format!("{}", *x.borrow()) + "\n\t"
         });

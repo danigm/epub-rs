@@ -3,8 +3,8 @@
 //! Provides easy methods to navigate througth the epub content, cover,
 //! chapters, etc.
 
-extern crate xml;
-extern crate regex;
+
+
 
 use std::collections::HashMap;
 use std::cmp::Ordering;
@@ -12,9 +12,9 @@ use failure::Error;
 use failure::err_msg;
 use std::path::{Component, Path, PathBuf};
 
-use archive::EpubArchive;
+use crate::archive::EpubArchive;
 
-use xmlutils;
+use crate::xmlutils;
 
 
 /// Struct that represent a navigation point in a table of content
