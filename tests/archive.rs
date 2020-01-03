@@ -1,4 +1,4 @@
-extern crate epub;
+
 
 use epub::archive::EpubArchive;
 use std::fs;

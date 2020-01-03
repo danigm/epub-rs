@@ -3,8 +3,8 @@
 //! Provides easy methods to navigate througth the epub parts and to get
 //! the content as string.
 
-extern crate percent_encoding;
-extern crate zip;
+use percent_encoding;
+use zip;
 
 use failure::Error;
 use std::fs;

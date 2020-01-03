@@ -1,4 +1,4 @@
-extern crate epub;
+
 
 use epub::doc::EpubDoc;
 

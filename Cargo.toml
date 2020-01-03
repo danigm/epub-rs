@@ -12,6 +12,7 @@ license = "GPL-3.0"
 name = "epub"
 repository = "https://github.com/danigm/epub-rs.git"
 version = "1.2.1"
+edition = "2018"
 
 [dependencies]
 failure = "0.1.6"
