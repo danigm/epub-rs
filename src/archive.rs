@@ -3,12 +3,12 @@
 //! Provides easy methods to navigate througth the epub parts and to get
 //! the content as string.
 
-extern crate zip;
 extern crate percent_encoding;
+extern crate zip;
 
+use failure::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
-use failure::Error;
 
 use std::io::Read;
 
@@ -40,9 +40,9 @@ impl EpubArchive {
         }
 
         Ok(EpubArchive {
-            zip: zip,
+            zip,
             path: path.to_path_buf(),
-            files: files,
+            files,
         })
     }
 
@@ -58,15 +58,16 @@ impl EpubArchive {
             Ok(mut zipfile) => {
                 zipfile.read_to_end(&mut entry)?;
                 return Ok(entry);
-            },
-            Err(zip::result::ZipError::FileNotFound) => {},
+            }
+            Err(zip::result::ZipError::FileNotFound) => {}
             Err(e) => {
                 return Err(e.into());
-            },
+            }
         };
 
         // try percent encoding
-        let name = self::percent_encoding::percent_decode(name.as_str().as_bytes()).decode_utf8()?;
+        let name =
+            self::percent_encoding::percent_decode(name.as_str().as_bytes()).decode_utf8()?;
         let mut zipfile = self.zip.by_name(&name)?;
         zipfile.read_to_end(&mut entry)?;
         Ok(entry)

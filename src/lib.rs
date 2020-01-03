@@ -100,7 +100,8 @@
 //! let resp = f.write_all(&cover_data);
 //! ```
 
-#[macro_use] extern crate failure;
+#[macro_use]
+extern crate failure;
 
 mod xmlutils;
 

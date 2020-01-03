@@ -1,11 +1,11 @@
 extern crate xml;
 
+use self::xml::reader::Error as ReaderError;
+use self::xml::reader::EventReader;
+use self::xml::reader::ParserConfig;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::rc::Weak;
-use self::xml::reader::EventReader;
-use self::xml::reader::ParserConfig;
-use self::xml::reader::Error as ReaderError;
 
 use self::xml::reader::XmlEvent as ReaderEvent;
 use self::xml::writer::XmlEvent as WriterEvent;
@@ -29,7 +29,7 @@ pub struct XMLReader<'a> {
 impl<'a> XMLReader<'a> {
     pub fn new(content: &[u8]) -> XMLReader {
         //If there is a UTF-8 BOM marker, ignore it
-        let content_slice = if content[0..3]==[0xefu8, 0xbbu8, 0xbfu8] {
+        let content_slice = if content[0..3] == [0xefu8, 0xbbu8, 0xbfu8] {
             &content[3..]
         } else {
             content
@@ -39,7 +39,7 @@ impl<'a> XMLReader<'a> {
                 .add_entity("nbsp", " ")
                 .add_entity("copy", "©")
                 .add_entity("reg", "®")
-                .create_reader(content_slice)
+                .create_reader(content_slice),
         }
     }
 
@@ -49,11 +49,15 @@ impl<'a> XMLReader<'a> {
 
         for e in self.reader {
             match e {
-                Ok(ReaderEvent::StartElement { name, attributes, namespace }) => {
+                Ok(ReaderEvent::StartElement {
+                    name,
+                    attributes,
+                    namespace,
+                }) => {
                     let node = XMLNode {
-                        name: name,
+                        name,
                         attrs: attributes,
-                        namespace: namespace,
+                        namespace,
                         parent: None,
                         text: None,
                         cdata: None,
@@ -75,7 +79,7 @@ impl<'a> XMLReader<'a> {
                     }
                 }
                 Ok(ReaderEvent::EndElement { .. }) => {
-                    if parents.len() > 0 {
+                    if !parents.is_empty() {
                         parents.pop();
                     }
                 }
@@ -99,10 +103,16 @@ impl<'a> XMLReader<'a> {
             let a = Rc::try_unwrap(r);
             match a {
                 Ok(n) => return Ok(n),
-                Err(_) => return Err(XMLError { error: String::from("Unknown error") }),
+                Err(_) => {
+                    return Err(XMLError {
+                        error: String::from("Unknown error"),
+                    })
+                }
             }
         }
-        Err(XMLError { error: String::from("Not xml elements") })
+        Err(XMLError {
+            error: String::from("Not xml elements"),
+        })
     }
 }
 
@@ -125,13 +135,17 @@ impl fmt::Display for XMLError {
 
 impl From<EmitterError> for XMLError {
     fn from(_: EmitterError) -> XMLError {
-        XMLError { error: String::from("Problem writting") }
+        XMLError {
+            error: String::from("Problem writting"),
+        }
     }
 }
 
 impl From<ReaderError> for XMLError {
     fn from(_: ReaderError) -> XMLError {
-        XMLError { error: String::from("Problem reading") }
+        XMLError {
+            error: String::from("Problem reading"),
+        }
     }
 }
 
@@ -154,7 +168,9 @@ impl XMLNode {
             }
         }
 
-        Err(XMLError { error: String::from("attr not found") })
+        Err(XMLError {
+            error: String::from("attr not found"),
+        })
     }
 
     pub fn find(&self, tag: &str) -> Result<ChildNodeRef, XMLError> {
@@ -162,13 +178,14 @@ impl XMLNode {
             if c.borrow().name.local_name == tag {
                 return Ok(c.clone());
             } else {
-                match c.borrow().find(tag) {
-                    Ok(n) => return Ok(n),
-                    _ => {}
+                if let Ok(n) = c.borrow().find(tag) {
+                    return Ok(n);
                 }
             }
         }
-        Err(XMLError { error: String::from("tag not found") })
+        Err(XMLError {
+            error: String::from("tag not found"),
+        })
     }
 }
 
@@ -177,8 +194,10 @@ impl fmt::Display for XMLNode {
         let childs: String = self.childs.iter().fold(String::from(""), |sum, x| {
             sum + &format!("{}", *x.borrow()) + "\n\t"
         });
-        let attrs: String =
-            self.attrs.iter().fold(String::from(""), |sum, x| sum + &x.name.local_name + ", ");
+        let attrs: String = self
+            .attrs
+            .iter()
+            .fold(String::from(""), |sum, x| sum + &x.name.local_name + ", ");
 
         let t = self.text.as_ref();
         let mut text = String::from("");
@@ -186,27 +205,33 @@ impl fmt::Display for XMLNode {
             text.clone_from(t);
         }
 
-        write!(f,
-               "<{} [{}]>\n\t{}{}",
-               self.name.local_name,
-               attrs,
-               childs,
-               text)
+        write!(
+            f,
+            "<{} [{}]>\n\t{}{}",
+            self.name.local_name, attrs, childs, text
+        )
     }
 }
 
-pub fn replace_attrs<F>(xmldoc: &[u8], closure: F, extra_css: &Vec<String>) -> Result<Vec<u8>, XMLError>
-    where F: Fn(&str, &str, &str) -> String
+pub fn replace_attrs<F>(
+    xmldoc: &[u8],
+    closure: F,
+    extra_css: &[String],
+) -> Result<Vec<u8>, XMLError>
+where
+    F: Fn(&str, &str, &str) -> String,
 {
     let mut b = Vec::new();
 
     {
         let reader = ParserConfig::new()
-                .add_entity("nbsp", " ")
-                .add_entity("copy", "©")
-                .add_entity("reg", "®")
-                .create_reader(xmldoc);
-        let mut writer = EmitterConfig::default().perform_indent(true).create_writer(&mut b);
+            .add_entity("nbsp", " ")
+            .add_entity("copy", "©")
+            .add_entity("reg", "®")
+            .create_reader(xmldoc);
+        let mut writer = EmitterConfig::default()
+            .perform_indent(true)
+            .create_writer(&mut b);
 
         for e in reader {
             match e {
@@ -214,8 +239,12 @@ pub fn replace_attrs<F>(xmldoc: &[u8], closure: F, extra_css: &Vec<String>) -> R
                     let ev = ev.unwrap();
                     let mut attrs: Vec<xml::attribute::OwnedAttribute> = vec![];
 
-                    if let Some(WriterEvent::StartElement { name, attributes, namespace }) =
-                        ev.as_writer_event() {
+                    if let Some(WriterEvent::StartElement {
+                        name,
+                        attributes,
+                        namespace,
+                    }) = ev.as_writer_event()
+                    {
                         for i in 0..attributes.len() {
                             let mut attr = attributes[i].to_owned();
                             let repl =
@@ -225,16 +254,16 @@ pub fn replace_attrs<F>(xmldoc: &[u8], closure: F, extra_css: &Vec<String>) -> R
                         }
 
                         let w = WriterEvent::StartElement {
-                            name: name,
+                            name,
                             attributes: Cow::Owned(attrs.iter().map(|x| x.borrow()).collect()),
                             //attributes: attributes,
-                            namespace: namespace,
+                            namespace,
                         };
                         writer.write(w)?;
                     }
                 }
                 Ok(ReaderEvent::EndElement { name: n }) => {
-                    if n.local_name.to_lowercase() == "head" && extra_css.len() > 0 {
+                    if n.local_name.to_lowercase() == "head" && !extra_css.is_empty() {
                         // injecting here the extra css
                         let mut allcss = extra_css.concat();
                         allcss = String::from("*/") + &allcss + "/*";
@@ -244,7 +273,6 @@ pub fn replace_attrs<F>(xmldoc: &[u8], closure: F, extra_css: &Vec<String>) -> R
                         writer.write(WriterEvent::cdata(&allcss))?;
                         writer.write("*/")?;
                         writer.write(WriterEvent::end_element())?;
-
                     }
                     writer.write(WriterEvent::end_element())?;
                 }
@@ -253,7 +281,11 @@ pub fn replace_attrs<F>(xmldoc: &[u8], closure: F, extra_css: &Vec<String>) -> R
                         writer.write(e)?;
                     }
                 }
-                Err(err) => return Err(XMLError { error: String::from(err.msg()) }),
+                Err(err) => {
+                    return Err(XMLError {
+                        error: String::from(err.msg()),
+                    })
+                }
             }
         }
     }
