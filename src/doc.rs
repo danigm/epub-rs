@@ -3,19 +3,18 @@
 //! Provides easy methods to navigate througth the epub content, cover,
 //! chapters, etc.
 
-extern crate xml;
 extern crate regex;
+extern crate xml;
 
-use std::collections::HashMap;
-use std::cmp::Ordering;
-use failure::Error;
 use failure::err_msg;
+use failure::Error;
+use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 
 use archive::EpubArchive;
 
 use xmlutils;
-
 
 /// Struct that represent a navigation point in a table of content
 #[derive(Eq)]
@@ -45,7 +44,6 @@ impl PartialEq for NavPoint {
         self.play_order == other.play_order
     }
 }
-
 
 /// Struct to control the epub document
 pub struct EpubDoc {
@@ -145,7 +143,7 @@ impl EpubDoc {
     pub fn mdata(&self, name: &str) -> Option<String> {
         match self.metadata.get(name) {
             Some(v) => v.get(0).cloned(),
-            None => None
+            None => None,
         }
     }
 
@@ -320,7 +318,6 @@ impl EpubDoc {
         self.get_resource_str(&current_id)
     }
 
-
     /// Returns the current chapter data, with resource uris renamed so they
     /// have the epub:// prefix and all are relative to the root file
     ///
@@ -349,14 +346,17 @@ impl EpubDoc {
         let path = self.get_current_path()?;
         let current = self.get_current()?;
 
-        let resp = xmlutils::replace_attrs(current.as_slice(),
-                                           |element, attr, value| match (element, attr) {
-                                               ("link", "href") => build_epub_uri(&path, value),
-                                               ("img", "src") => build_epub_uri(&path, value),
-                                               ("image", "href") => build_epub_uri(&path, value),
-                                               ("a", "href") => build_epub_uri(&path, value),
-                                               _ => String::from(value),
-                                           }, &self.extra_css);
+        let resp = xmlutils::replace_attrs(
+            current.as_slice(),
+            |element, attr, value| match (element, attr) {
+                ("link", "href") => build_epub_uri(&path, value),
+                ("img", "src") => build_epub_uri(&path, value),
+                ("image", "href") => build_epub_uri(&path, value),
+                ("a", "href") => build_epub_uri(&path, value),
+                _ => String::from(value),
+            },
+            &self.extra_css,
+        );
 
         match resp {
             Ok(a) => Ok(a),
@@ -641,17 +641,25 @@ impl EpubDoc {
             if item.name.local_name != "navPoint" {
                 continue;
             }
-            let play_order = item.get_attr("playOrder").ok()
+            let play_order = item
+                .get_attr("playOrder")
+                .ok()
                 .and_then(|n| usize::from_str_radix(&n, 10).ok());
             let content = match item.find("content") {
-                Ok(c) => c.borrow().get_attr("src").ok()
-                          .map(|p| self.root_base.join(p)),
+                Ok(c) => c
+                    .borrow()
+                    .get_attr("src")
+                    .ok()
+                    .map(|p| self.root_base.join(p)),
                 _ => None,
             };
             let label = match item.find("navLabel") {
-                Ok(l) => l.borrow()
-                          .childs.iter().next()
-                          .and_then(|t| t.borrow().text.clone()),
+                Ok(l) => l
+                    .borrow()
+                    .childs
+                    .iter()
+                    .next()
+                    .and_then(|t| t.borrow().text.clone()),
                 _ => None,
             };
 
@@ -698,11 +706,11 @@ fn build_epub_uri<P: AsRef<Path>>(path: P, append: &str) -> String {
         match p {
             Component::ParentDir => {
                 cpath.pop();
-            },
+            }
             Component::Normal(s) => {
                 cpath.push(s);
-            },
-            _ => {},
+            }
+            _ => {}
         };
     }
 
