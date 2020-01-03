@@ -55,9 +55,9 @@ impl<'a> XMLReader<'a> {
                     namespace,
                 }) => {
                     let node = XMLNode {
-                        name: name,
+                        name,
                         attrs: attributes,
-                        namespace: namespace,
+                        namespace,
                         parent: None,
                         text: None,
                         cdata: None,
@@ -79,7 +79,7 @@ impl<'a> XMLReader<'a> {
                     }
                 }
                 Ok(ReaderEvent::EndElement { .. }) => {
-                    if parents.len() > 0 {
+                    if !parents.is_empty() {
                         parents.pop();
                     }
                 }
@@ -178,9 +178,8 @@ impl XMLNode {
             if c.borrow().name.local_name == tag {
                 return Ok(c.clone());
             } else {
-                match c.borrow().find(tag) {
-                    Ok(n) => return Ok(n),
-                    _ => {}
+                if let Ok(n) = c.borrow().find(tag) {
+                    return Ok(n);
                 }
             }
         }
@@ -217,7 +216,7 @@ impl fmt::Display for XMLNode {
 pub fn replace_attrs<F>(
     xmldoc: &[u8],
     closure: F,
-    extra_css: &Vec<String>,
+    extra_css: &[String],
 ) -> Result<Vec<u8>, XMLError>
 where
     F: Fn(&str, &str, &str) -> String,
@@ -255,16 +254,16 @@ where
                         }
 
                         let w = WriterEvent::StartElement {
-                            name: name,
+                            name,
                             attributes: Cow::Owned(attrs.iter().map(|x| x.borrow()).collect()),
                             //attributes: attributes,
-                            namespace: namespace,
+                            namespace,
                         };
                         writer.write(w)?;
                     }
                 }
                 Ok(ReaderEvent::EndElement { name: n }) => {
-                    if n.local_name.to_lowercase() == "head" && extra_css.len() > 0 {
+                    if n.local_name.to_lowercase() == "head" && !extra_css.is_empty() {
                         // injecting here the extra css
                         let mut allcss = extra_css.concat();
                         allcss = String::from("*/") + &allcss + "/*";

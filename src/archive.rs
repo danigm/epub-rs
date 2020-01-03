@@ -40,9 +40,9 @@ impl EpubArchive {
         }
 
         Ok(EpubArchive {
-            zip: zip,
+            zip,
             path: path.to_path_buf(),
-            files: files,
+            files,
         })
     }
 

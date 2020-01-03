@@ -114,10 +114,10 @@ impl EpubDoc {
         let base_path = root_file.parent().expect("All files have a parent");
 
         let mut doc = EpubDoc {
-            archive: archive,
-            spine: spine,
+            archive,
+            spine,
             toc: vec![],
-            resources: resources,
+            resources,
             metadata: HashMap::new(),
             root_file: root_file.clone(),
             root_base: base_path.to_path_buf(),
@@ -168,7 +168,7 @@ impl EpubDoc {
     /// Returns an error if the cover path can't be found.
     pub fn get_cover_id(&self) -> Result<String, Error> {
         match self.mdata("cover") {
-            Some(id) => Ok(id.to_string()),
+            Some(id) => Ok(id),
             None => Err(format_err!("Cover not found")),
         }
     }
@@ -266,9 +266,8 @@ impl EpubDoc {
     ///
     /// Fails if the resource can't be found.
     pub fn get_resource_mime(&self, id: &str) -> Result<String, Error> {
-        match self.resources.get(id) {
-            Some(&(_, ref res)) => return Ok(res.to_string()),
-            None => {}
+        if let Some(&(_, ref res)) = self.resources.get(id) {
+            return Ok(res.to_string());
         }
         Err(format_err!("id not found"))
     }
@@ -395,8 +394,8 @@ impl EpubDoc {
     pub fn get_current_path(&self) -> Result<PathBuf, Error> {
         let current_id = self.get_current_id()?;
         match self.resources.get(&current_id) {
-            Some(&(ref p, _)) => return Ok(p.clone()),
-            None => return Err(format_err!("Current not found")),
+            Some(&(ref p, _)) => Ok(p.clone()),
+            None => Err(format_err!("Current not found")),
         }
     }
 
@@ -414,8 +413,8 @@ impl EpubDoc {
     pub fn get_current_id(&self) -> Result<String, Error> {
         let current_id = self.spine.get(self.current);
         match current_id {
-            Some(id) => return Ok(id.to_string()),
-            None => return Err(format_err!("current is broken")),
+            Some(id) => Ok(id.to_string()),
+            None => Err(format_err!("current is broken")),
         }
     }
 
@@ -606,7 +605,7 @@ impl EpubDoc {
                     }
                 }
             } else {
-                let ref k = item.name.local_name;
+                let k = &item.name.local_name;
                 let v = match item.text {
                     Some(ref x) => x.to_string(),
                     None => String::from(""),
@@ -625,7 +624,10 @@ impl EpubDoc {
     }
 
     fn fill_toc(&mut self, id: &str) -> Result<(), Error> {
-        let toc_res = self.resources.get(id).ok_or(err_msg("No toc found"))?;
+        let toc_res = self
+            .resources
+            .get(id)
+            .ok_or_else(|| err_msg("No toc found"))?;
 
         let container = self.archive.get_entry(&toc_res.0)?;
         let xml = xmlutils::XMLReader::new(container.as_slice());
