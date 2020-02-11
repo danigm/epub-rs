@@ -8,6 +8,7 @@ fn doc_open() {
     let doc = EpubDoc::new("test.epub");
     assert!(doc.is_ok());
     let doc = doc.unwrap();
+    let doc2 = EpubDoc::new("tests/docs/Metamorphosis-jackson.epub").unwrap();
     assert_eq!(Path::new("OEBPS"), doc.root_base);
     assert_eq!(Path::new("OEBPS/content.opf"), doc.root_file);
 
@@ -45,6 +46,16 @@ fn doc_open() {
     {
         let release_identifier = doc.get_release_identifier();
         assert_eq!(release_identifier.unwrap(), "urn:uuid:09132750-3601-4d19-b3a4-55fdf8639849@2015-08-10T18:12:03Z");
+    }
+
+    {
+        let unique_identifier = doc2.unique_identifier.clone();
+        assert_eq!("http://metamorphosiskafka.pressbooks.com", unique_identifier.unwrap());
+    }
+
+    {
+        let release_identifier = doc2.get_release_identifier();
+        assert_eq!(None, release_identifier);
     }
 }
 
