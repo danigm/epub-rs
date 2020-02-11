@@ -41,6 +41,11 @@ fn doc_open() {
         let modified = doc.mdata("dcterms:modified");
         assert_eq!(modified.unwrap(), "2015-08-10T18:12:03Z");
     }
+
+    {
+        let release_identifier = doc.get_release_identifier();
+        assert_eq!(release_identifier.unwrap(), "urn:uuid:09132750-3601-4d19-b3a4-55fdf8639849@2015-08-10T18:12:03Z");
+    }
 }
 
 #[test]
