@@ -204,6 +204,15 @@ impl EpubDoc {
         Ok(cover_data)
     }
 
+    /// Returns Release Identifier defined at
+    /// https://www.w3.org/publishing/epub3/epub-packages.html#sec-metadata-elem-identifiers-pid
+    pub fn get_release_identifier(&self) -> Option<String> {
+        match (self.unique_identifier.as_ref(), self.mdata("dcterms:modified")) {
+            (Some(unique_identifier), Some(modified)) => Some(format!("{}@{}", unique_identifier, modified)),
+            _ => None,
+        }
+    }
+
     /// Returns the resource content by full path in the epub archive
     ///
     /// # Errors
