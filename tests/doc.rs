@@ -31,6 +31,11 @@ fn doc_open() {
         let cover = doc.get_cover_id();
         assert_eq!(cover.unwrap(), "portada.png");
     }
+
+    {
+        let modified = doc.mdata("dcterms:modified");
+        assert_eq!(modified.unwrap(), "2015-08-10T18:12:03Z");
+    }
 }
 
 #[test]
