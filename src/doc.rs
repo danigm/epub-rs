@@ -80,6 +80,9 @@ pub struct EpubDoc {
 
     /// Custom css list to inject in every xhtml file
     pub extra_css: Vec<String>,
+
+    /// unique identifier
+    pub unique_identifier: Option<String>,
 }
 
 impl EpubDoc {
@@ -120,6 +123,7 @@ impl EpubDoc {
             root_base: base_path.to_path_buf(),
             current: 0,
             extra_css: vec![],
+            unique_identifier: None,
         };
 
         doc.fill_resources()?;
@@ -563,6 +567,8 @@ impl EpubDoc {
         let xml = xmlutils::XMLReader::new(container.as_slice());
         let root = xml.parse_xml()?;
 
+        let unique_identifier_id = &root.borrow().get_attr("unique-identifier").ok();
+
         // resources from manifest
         let manifest = root.borrow().find("manifest")?;
         for r in manifest.borrow().childs.iter() {
@@ -619,6 +625,13 @@ impl EpubDoc {
                     Some(ref x) => x.to_string(),
                     None => String::from(""),
                 };
+                if k == "identifier" && self.unique_identifier.is_none() && unique_identifier_id.is_some() {
+                    if let Ok(id) = item.get_attr("id") {
+                        if &id == unique_identifier_id.as_ref().unwrap() {
+                            self.unique_identifier = Some(v.to_string());
+                        }
+                    }
+                }
                 if self.metadata.contains_key(k) {
                     if let Some(arr) = self.metadata.get_mut(k) {
                         arr.push(v);
