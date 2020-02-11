@@ -600,6 +600,18 @@ impl EpubDoc {
                     } else {
                         self.metadata.insert(k, vec![v]);
                     }
+                } else if let Ok(k) = item.get_attr("property") {
+                    let v = match item.text {
+                        Some(ref x) => x.to_string(),
+                        None => String::from(""),
+                    };
+                    if self.metadata.contains_key(&k) {
+                        if let Some(arr) = self.metadata.get_mut(&k) {
+                            arr.push(v);
+                        }
+                    } else {
+                        self.metadata.insert(k, vec![v]);
+                    }
                 }
             } else {
                 let k = &item.name.local_name;
