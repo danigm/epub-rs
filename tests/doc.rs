@@ -23,6 +23,11 @@ fn doc_open() {
     }
 
     {
+        let unique_identifier = doc.unique_identifier.clone();
+        assert_eq!(unique_identifier.unwrap(), "urn:uuid:09132750-3601-4d19-b3a4-55fdf8639849");
+    }
+
+    {
         let title = doc.mdata("title");
         assert_eq!(title.unwrap(), "Todo es mío");
     }
