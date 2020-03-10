@@ -7,29 +7,29 @@ use percent_encoding;
 use zip;
 
 use failure::Error;
-use std::fs;
+use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use std::io::Read;
+use std::io::{Read, Seek};
 
 /// Epub archive struct. Here it's stored the file path and the list of
 /// files in the zip archive.
-pub struct EpubArchive {
-    zip: zip::ZipArchive<fs::File>,
+pub struct EpubArchive<R: Read + Seek> {
+    zip: zip::ZipArchive<R>,
     pub path: PathBuf,
     pub files: Vec<String>,
 }
 
-impl EpubArchive {
+impl EpubArchive<File> {
     /// Opens the epub file in `path`.
     ///
     /// # Errors
     ///
     /// Returns an error if the zip is broken or if the file doesn't
     /// exists.
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<EpubArchive, Error> {
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<EpubArchive<File>, Error> {
         let path = path.as_ref();
-        let file = fs::File::open(path)?;
+        let file = File::open(path)?;
 
         let mut zip = zip::ZipArchive::new(file)?;
         let mut files = vec![];
@@ -42,6 +42,29 @@ impl EpubArchive {
         Ok(EpubArchive {
             zip,
             path: path.to_path_buf(),
+            files,
+        })
+    }
+}
+
+impl<R: Read + Seek> EpubArchive<R> {
+    /// Opens the epub contained in `reader`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the zip is broken.
+    pub fn from_reader(reader: R) -> Result<EpubArchive<R>, Error> {
+        let mut zip = zip::ZipArchive::new(reader)?;
+        let mut files = vec![];
+
+        for i in 0..(zip.len()) {
+            let file = zip.by_index(i)?;
+            files.push(String::from(file.name()));
+        }
+
+        Ok(EpubArchive {
+            zip,
+            path: PathBuf::new(),
             files,
         })
     }
