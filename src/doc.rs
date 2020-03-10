@@ -8,6 +8,8 @@ use failure::Error;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
+use std::fs::File;
+use std::io::{Read, Seek};
 
 use crate::archive::EpubArchive;
 
@@ -43,9 +45,9 @@ impl PartialEq for NavPoint {
 }
 
 /// Struct to control the epub document
-pub struct EpubDoc {
+pub struct EpubDoc<R: Read + Seek> {
     /// the zip archive
-    archive: EpubArchive,
+    archive: EpubArchive<R>,
 
     /// The current chapter, is an spine index
     current: usize,
@@ -85,7 +87,7 @@ pub struct EpubDoc {
     pub unique_identifier: Option<String>,
 }
 
-impl EpubDoc {
+impl EpubDoc<File> {
     /// Opens the epub file in `path`.
     ///
     /// Initialize some internal variables to be able to access to the epub
@@ -104,8 +106,62 @@ impl EpubDoc {
     ///
     /// Returns an error if the epub is broken or if the file doesn't
     /// exists.
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<EpubDoc, Error> {
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<EpubDoc<File>, Error> {
         let mut archive = EpubArchive::new(path)?;
+        let spine: Vec<String> = vec![];
+        let resources = HashMap::new();
+
+        let container = archive.get_container_file()?;
+        let root_file = get_root_file(container)?;
+        let base_path = root_file.parent().expect("All files have a parent");
+
+        let mut doc = EpubDoc {
+            archive,
+            spine,
+            toc: vec![],
+            resources,
+            metadata: HashMap::new(),
+            root_file: root_file.clone(),
+            root_base: base_path.to_path_buf(),
+            current: 0,
+            extra_css: vec![],
+            unique_identifier: None,
+        };
+
+        doc.fill_resources()?;
+
+        Ok(doc)
+    }
+}
+
+impl<R: Read + Seek> EpubDoc<R> {
+    /// Opens the epub contained in `reader`.
+    ///
+    /// Initialize some internal variables to be able to access to the epub
+    /// spine definition and to navigate trhough the epub.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use epub::doc::EpubDoc;
+    /// use std::fs::File;
+    /// use std::io::{Cursor, Read};
+    ///
+    /// let mut file = File::open("test.epub").unwrap();
+    /// let mut buffer = Vec::new();
+    /// file.read_to_end(&mut buffer).unwrap();
+    ///
+    /// let cursor = Cursor::new(buffer);
+    ///
+    /// let doc = EpubDoc::from_reader(cursor);
+    /// assert!(doc.is_ok());
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the epub is broken.
+    pub fn from_reader(reader: R) -> Result<EpubDoc<R>, Error> {
+        let mut archive = EpubArchive::<R>::from_reader(reader)?;
         let spine: Vec<String> = vec![];
         let resources = HashMap::new();
 
