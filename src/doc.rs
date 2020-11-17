@@ -107,30 +107,7 @@ impl EpubDoc<File> {
     /// Returns an error if the epub is broken or if the file doesn't
     /// exists.
     pub fn new<P: AsRef<Path>>(path: P) -> Result<EpubDoc<File>, Error> {
-        let mut archive = EpubArchive::new(path)?;
-        let spine: Vec<String> = vec![];
-        let resources = HashMap::new();
-
-        let container = archive.get_container_file()?;
-        let root_file = get_root_file(container)?;
-        let base_path = root_file.parent().expect("All files have a parent");
-
-        let mut doc = EpubDoc {
-            archive,
-            spine,
-            toc: vec![],
-            resources,
-            metadata: HashMap::new(),
-            root_file: root_file.clone(),
-            root_base: base_path.to_path_buf(),
-            current: 0,
-            extra_css: vec![],
-            unique_identifier: None,
-        };
-
-        doc.fill_resources()?;
-
-        Ok(doc)
+        EpubDoc::from_reader(File::open(path)?)
     }
 }
 
