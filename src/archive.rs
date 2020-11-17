@@ -5,6 +5,7 @@
 
 use anyhow::Error;
 use std::fs::File;
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use std::io::{Read, Seek};
@@ -17,16 +18,17 @@ pub struct EpubArchive<R: Read + Seek> {
     pub files: Vec<String>,
 }
 
-impl EpubArchive<File> {
+impl EpubArchive<BufReader<File>> {
     /// Opens the epub file in `path`.
     ///
     /// # Errors
     ///
     /// Returns an error if the zip is broken or if the file doesn't
     /// exists.
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<EpubArchive<File>, Error> {
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<EpubArchive<BufReader<File>>, Error> {
         let path = path.as_ref();
-        let mut archive = EpubArchive::from_reader(File::open(path)?)?;
+        let file = File::open(path)?;
+        let mut archive = EpubArchive::from_reader(BufReader::new(file))?;
         archive.path = path.to_path_buf();
         Ok(archive)
     }
