@@ -28,7 +28,10 @@ impl EpubArchive<File> {
     /// Returns an error if the zip is broken or if the file doesn't
     /// exists.
     pub fn new<P: AsRef<Path>>(path: P) -> Result<EpubArchive<File>, Error> {
-        EpubArchive::from_reader(File::open(path)?)
+        let path = path.as_ref();
+        let mut archive = EpubArchive::from_reader(File::open(path)?)?;
+        archive.path = path.to_path_buf();
+        Ok(archive)
     }
 }
 
