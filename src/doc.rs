@@ -107,7 +107,10 @@ impl EpubDoc<File> {
     /// Returns an error if the epub is broken or if the file doesn't
     /// exists.
     pub fn new<P: AsRef<Path>>(path: P) -> Result<EpubDoc<File>, Error> {
-        EpubDoc::from_reader(File::open(path)?)
+        let path = path.as_ref();
+        let mut doc = EpubDoc::from_reader(File::open(path)?)?;
+        doc.archive.path = path.to_path_buf();
+        Ok(doc)
     }
 }
 
