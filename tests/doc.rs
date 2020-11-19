@@ -1,5 +1,3 @@
-
-
 use epub::doc::EpubDoc;
 use std::path::Path;
 
@@ -25,7 +23,10 @@ fn doc_open() {
 
     {
         let unique_identifier = doc.unique_identifier.clone();
-        assert_eq!(unique_identifier.unwrap(), "urn:uuid:09132750-3601-4d19-b3a4-55fdf8639849");
+        assert_eq!(
+            unique_identifier.unwrap(),
+            "urn:uuid:09132750-3601-4d19-b3a4-55fdf8639849"
+        );
     }
 
     {
@@ -45,12 +46,18 @@ fn doc_open() {
 
     {
         let release_identifier = doc.get_release_identifier();
-        assert_eq!(release_identifier.unwrap(), "urn:uuid:09132750-3601-4d19-b3a4-55fdf8639849@2015-08-10T18:12:03Z");
+        assert_eq!(
+            release_identifier.unwrap(),
+            "urn:uuid:09132750-3601-4d19-b3a4-55fdf8639849@2015-08-10T18:12:03Z"
+        );
     }
 
     {
         let unique_identifier = doc2.unique_identifier.clone();
-        assert_eq!("http://metamorphosiskafka.pressbooks.com", unique_identifier.unwrap());
+        assert_eq!(
+            "http://metamorphosiskafka.pressbooks.com",
+            unique_identifier.unwrap()
+        );
     }
 
     {

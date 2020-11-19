@@ -1,5 +1,3 @@
-
-
 use epub::doc::EpubDoc;
 
 #[test]

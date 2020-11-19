@@ -6,9 +6,9 @@
 use anyhow::{anyhow, Error};
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::path::{Component, Path, PathBuf};
 use std::fs::File;
 use std::io::{Read, Seek};
+use std::path::{Component, Path, PathBuf};
 
 use crate::archive::EpubArchive;
 
@@ -242,8 +242,13 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// Returns Release Identifier defined at
     /// https://www.w3.org/publishing/epub3/epub-packages.html#sec-metadata-elem-identifiers-pid
     pub fn get_release_identifier(&self) -> Option<String> {
-        match (self.unique_identifier.as_ref(), self.mdata("dcterms:modified")) {
-            (Some(unique_identifier), Some(modified)) => Some(format!("{}@{}", unique_identifier, modified)),
+        match (
+            self.unique_identifier.as_ref(),
+            self.mdata("dcterms:modified"),
+        ) {
+            (Some(unique_identifier), Some(modified)) => {
+                Some(format!("{}@{}", unique_identifier, modified))
+            }
             _ => None,
         }
     }
@@ -643,25 +648,13 @@ impl<R: Read + Seek> EpubDoc<R> {
             let item = r.borrow();
             if item.name.local_name == "meta" {
                 if let (Ok(k), Ok(v)) = (item.get_attr("name"), item.get_attr("content")) {
-                    if self.metadata.contains_key(&k) {
-                        if let Some(arr) = self.metadata.get_mut(&k) {
-                            arr.push(v);
-                        }
-                    } else {
-                        self.metadata.insert(k, vec![v]);
-                    }
+                    self.metadata.entry(k).or_insert(vec![]).push(v);
                 } else if let Ok(k) = item.get_attr("property") {
                     let v = match item.text {
                         Some(ref x) => x.to_string(),
                         None => String::from(""),
                     };
-                    if self.metadata.contains_key(&k) {
-                        if let Some(arr) = self.metadata.get_mut(&k) {
-                            arr.push(v);
-                        }
-                    } else {
-                        self.metadata.insert(k, vec![v]);
-                    }
+                    self.metadata.entry(k).or_insert(vec![]).push(v);
                 }
             } else {
                 let k = &item.name.local_name;
@@ -669,7 +662,10 @@ impl<R: Read + Seek> EpubDoc<R> {
                     Some(ref x) => x.to_string(),
                     None => String::from(""),
                 };
-                if k == "identifier" && self.unique_identifier.is_none() && unique_identifier_id.is_some() {
+                if k == "identifier"
+                    && self.unique_identifier.is_none()
+                    && unique_identifier_id.is_some()
+                {
                     if let Ok(id) = item.get_attr("id") {
                         if &id == unique_identifier_id.as_ref().unwrap() {
                             self.unique_identifier = Some(v.to_string());
@@ -725,8 +721,7 @@ impl<R: Read + Seek> EpubDoc<R> {
                 Ok(l) => l
                     .borrow()
                     .childs
-                    .iter()
-                    .next()
+                    .get(0)
                     .and_then(|t| t.borrow().text.clone()),
                 _ => None,
             };
