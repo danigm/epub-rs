@@ -6,7 +6,7 @@
 use percent_encoding;
 use zip;
 
-use failure::Error;
+use anyhow::Error;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 

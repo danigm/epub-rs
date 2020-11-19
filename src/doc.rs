@@ -3,8 +3,7 @@
 //! Provides easy methods to navigate througth the epub content, cover,
 //! chapters, etc.
 
-use failure::err_msg;
-use failure::Error;
+use anyhow::{anyhow, Error};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
@@ -206,7 +205,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     pub fn get_cover_id(&self) -> Result<String, Error> {
         match self.mdata("cover") {
             Some(id) => Ok(id),
-            None => Err(format_err!("Cover not found")),
+            None => Err(anyhow!("Cover not found")),
         }
     }
 
@@ -267,7 +266,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     pub fn get_resource(&mut self, id: &str) -> Result<Vec<u8>, Error> {
         let path = match self.resources.get(id) {
             Some(s) => s.0.clone(),
-            None => return Err(format_err!("id not found")),
+            None => return Err(anyhow!("id not found")),
         };
         let content = self.get_resource_by_path(&path)?;
         Ok(content)
@@ -291,7 +290,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     pub fn get_resource_str(&mut self, id: &str) -> Result<String, Error> {
         let path = match self.resources.get(id) {
             Some(s) => s.0.clone(),
-            None => return Err(format_err!("id not found")),
+            None => return Err(anyhow!("id not found")),
         };
         let content = self.get_resource_str_by_path(path)?;
         Ok(content)
@@ -315,7 +314,7 @@ impl<R: Read + Seek> EpubDoc<R> {
         if let Some(&(_, ref res)) = self.resources.get(id) {
             return Ok(res.to_string());
         }
-        Err(format_err!("id not found"))
+        Err(anyhow!("id not found"))
     }
 
     /// Returns the resource mime searching by source full path
@@ -341,7 +340,7 @@ impl<R: Read + Seek> EpubDoc<R> {
                 return Ok(v.1.to_string());
             }
         }
-        Err(format_err!("path not found"))
+        Err(anyhow!("path not found"))
     }
 
     /// Returns the current chapter content
@@ -405,7 +404,7 @@ impl<R: Read + Seek> EpubDoc<R> {
 
         match resp {
             Ok(a) => Ok(a),
-            Err(error) => Err(format_err!("{}", error.error)),
+            Err(error) => Err(anyhow!("{}", error.error)),
         }
     }
 
@@ -441,7 +440,7 @@ impl<R: Read + Seek> EpubDoc<R> {
         let current_id = self.get_current_id()?;
         match self.resources.get(&current_id) {
             Some(&(ref p, _)) => Ok(p.clone()),
-            None => Err(format_err!("Current not found")),
+            None => Err(anyhow!("Current not found")),
         }
     }
 
@@ -460,7 +459,7 @@ impl<R: Read + Seek> EpubDoc<R> {
         let current_id = self.spine.get(self.current);
         match current_id {
             Some(id) => Ok(id.to_string()),
-            None => Err(format_err!("current is broken")),
+            None => Err(anyhow!("current is broken")),
         }
     }
 
@@ -487,7 +486,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// If the page is the last, will not change and an error will be returned
     pub fn go_next(&mut self) -> Result<(), Error> {
         if self.current + 1 >= self.spine.len() {
-            return Err(format_err!("last page"));
+            return Err(anyhow!("last page"));
         }
         self.current += 1;
         Ok(())
@@ -515,7 +514,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// If the page is the first, will not change and an error will be returned
     pub fn go_prev(&mut self) -> Result<(), Error> {
         if self.current < 1 {
-            return Err(format_err!("first page"));
+            return Err(anyhow!("first page"));
         }
         self.current -= 1;
         Ok(())
@@ -560,7 +559,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// If the page isn't valid, will not change and an error will be returned
     pub fn set_current_page(&mut self, n: usize) -> Result<(), Error> {
         if n >= self.spine.len() {
-            return Err(format_err!("page not valid"));
+            return Err(anyhow!("page not valid"));
         }
         self.current = n;
         Ok(())
@@ -694,7 +693,7 @@ impl<R: Read + Seek> EpubDoc<R> {
         let toc_res = self
             .resources
             .get(id)
-            .ok_or_else(|| err_msg("No toc found"))?;
+            .ok_or_else(|| anyhow!("No toc found"))?;
 
         let container = self.archive.get_entry(&toc_res.0)?;
         let xml = xmlutils::XMLReader::new(container.as_slice());
