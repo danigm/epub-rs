@@ -7,6 +7,7 @@ use anyhow::{anyhow, Error};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fs::File;
+use std::io::BufReader;
 use std::io::{Read, Seek};
 use std::path::{Component, Path, PathBuf};
 
@@ -86,7 +87,7 @@ pub struct EpubDoc<R: Read + Seek> {
     pub unique_identifier: Option<String>,
 }
 
-impl EpubDoc<File> {
+impl EpubDoc<BufReader<File>> {
     /// Opens the epub file in `path`.
     ///
     /// Initialize some internal variables to be able to access to the epub
@@ -105,9 +106,10 @@ impl EpubDoc<File> {
     ///
     /// Returns an error if the epub is broken or if the file doesn't
     /// exists.
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<EpubDoc<File>, Error> {
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<EpubDoc<BufReader<File>>, Error> {
         let path = path.as_ref();
-        let mut doc = EpubDoc::from_reader(File::open(path)?)?;
+        let file = File::open(path)?;
+        let mut doc = EpubDoc::from_reader(BufReader::new(file))?;
         doc.archive.path = path.to_path_buf();
         Ok(doc)
     }
