@@ -22,6 +22,8 @@ pub struct NavPoint {
     pub label: String,
     /// the resource path
     pub content: PathBuf,
+    /// nested navpoints
+    pub children: Vec<NavPoint>,
     /// the order in the toc
     pub play_order: usize,
 }
@@ -699,10 +701,20 @@ impl<R: Read + Seek> EpubDoc<R> {
 
         let mapnode = root.borrow().find("navMap")?;
 
+        self.toc.append(&mut self.get_navpoints(&mapnode.borrow()));
+        self.toc.sort();
+
+        Ok(())
+    }
+
+    /// Recursively extract all navpoints from a node.
+    fn get_navpoints(&self, parent: &xmlutils::XMLNode) -> Vec<NavPoint> {
+        let mut navpoints = Vec::new();
+
         // TODO: get docTitle
         // TODO: parse metadata (dtb:totalPageCount, dtb:depth, dtb:maxPageNumber)
 
-        for nav in mapnode.borrow().childs.iter() {
+        for nav in parent.childs.iter() {
             let item = nav.borrow();
             if item.name.local_name != "navPoint" {
                 continue;
@@ -732,15 +744,15 @@ impl<R: Read + Seek> EpubDoc<R> {
                 let navpoint = NavPoint {
                     label: l.clone(),
                     content: c.clone(),
+                    children: self.get_navpoints(&item),
                     play_order: o,
                 };
-                self.toc.push(navpoint);
+                navpoints.push(navpoint);
             }
         }
 
-        self.toc.sort();
-
-        Ok(())
+        navpoints.sort();
+        navpoints
     }
 }
 
