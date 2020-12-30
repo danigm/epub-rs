@@ -615,6 +615,19 @@ impl<R: Read + Seek> EpubDoc<R> {
         self.spine.iter().position(|item| item == uri)
     }
 
+    // Forcibly converts separators in a filepath to unix separators to
+    // to ensure that ZipArchive's by_name method will retrieve the proper
+    // file. Failing to convert to unix-style on Windows causes the 
+    // ZipArchive not to find the file.
+    fn convert_path_separators(&self, href: &str) -> PathBuf {
+        let path = self.root_base.join(href.split("/").collect::<PathBuf>());
+        if cfg!(windows) {
+            let path = path.as_path().display().to_string().replace("\\", "/");
+            return PathBuf::from(path);
+        }
+        PathBuf::from(path)
+    }
+
     fn fill_resources(&mut self) -> Result<(), Error> {
         let container = self.archive.get_entry(&self.root_file)?;
         let xml = xmlutils::XMLReader::new(container.as_slice());
@@ -629,8 +642,9 @@ impl<R: Read + Seek> EpubDoc<R> {
             let id = item.get_attr("id")?;
             let href = item.get_attr("href")?;
             let mtype = item.get_attr("media-type")?;
+            let path = self.convert_path_separators(&href);
             self.resources
-                .insert(id, (self.root_base.join(&href), mtype));
+                .insert(id, (path, mtype));
         }
 
         // items from spine
@@ -791,5 +805,12 @@ fn build_epub_uri<P: AsRef<Path>>(path: P, append: &str) -> String {
         };
     }
 
-    format!("epub://{}", cpath.display())
+    // If on Windows, replace all Windows path separators with Unix path separators
+    let path = if cfg!(windows) {
+        cpath.display().to_string().replace("\\", "/")
+    } else {
+        cpath.display().to_string()
+    };
+
+    format!("epub://{}", path)
 }
