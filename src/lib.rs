@@ -44,7 +44,7 @@
 //! assert_eq!(tpage.unwrap().1, "application/xhtml+xml");
 //! ```
 //!
-//! ## Navigating usint the spine
+//! ## Navigating using the spine
 //!
 //! Spine is a Vec<String> storing the epub spine as resources ids
 //!
