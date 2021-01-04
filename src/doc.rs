@@ -617,7 +617,7 @@ impl<R: Read + Seek> EpubDoc<R> {
 
     // Forcibly converts separators in a filepath to unix separators to
     // to ensure that ZipArchive's by_name method will retrieve the proper
-    // file. Failing to convert to unix-style on Windows causes the 
+    // file. Failing to convert to unix-style on Windows causes the
     // ZipArchive not to find the file.
     fn convert_path_separators(&self, href: &str) -> PathBuf {
         let path = self.root_base.join(href.split("/").collect::<PathBuf>());
