@@ -41,13 +41,9 @@ impl<R: Read + Seek> EpubArchive<R> {
     ///
     /// Returns an error if the zip is broken.
     pub fn from_reader(reader: R) -> Result<EpubArchive<R>, Error> {
-        let mut zip = zip::ZipArchive::new(reader)?;
-        let mut files = vec![];
+        let zip = zip::ZipArchive::new(reader)?;
 
-        for i in 0..(zip.len()) {
-            let file = zip.by_index(i)?;
-            files.push(String::from(file.name()));
-        }
+        let files:Vec<String> = zip.file_names().map(|f| f.to_string()).collect();
 
         Ok(EpubArchive {
             zip,
