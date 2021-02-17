@@ -25,23 +25,40 @@ pub struct XMLReader<'a> {
 }
 
 impl<'a> XMLReader<'a> {
-    pub fn new(content: &[u8]) -> XMLReader<'_> {
+    pub fn parse(content: &[u8]) -> Result<RefCell<XMLNode>, XMLError> {
+        let content_str;
         //If there is a UTF-8 BOM marker, ignore it
         let content_slice = if content[0..3] == [0xefu8, 0xbbu8, 0xbfu8] {
             &content[3..]
+        } else if content[0..2] == [0xfeu8, 0xffu8] || content[0..2] == [0xffu8, 0xfeu8] { //handle utf-16
+            let (big_byte, small_byte) = if content[0] == 0xfeu8 {
+                (1,0) //big endian utf-16
+            } else {
+                (0,1) //little endian utf-16
+            };
+            let content_u16: Vec<u16> = content[2..]
+                .chunks_exact(2)
+                .into_iter()
+                .map(|a| u16::from_ne_bytes([a[big_byte], a[small_byte]]))
+                .collect();
+            content_str = String::from_utf16_lossy(content_u16.as_slice());
+            content_str.as_bytes()
         } else {
             content
         };
-        XMLReader {
+
+        let reader = XMLReader {
             reader: ParserConfig::new()
                 .add_entity("nbsp", " ")
                 .add_entity("copy", "©")
                 .add_entity("reg", "®")
-                .create_reader(content_slice),
-        }
+                .create_reader(content_slice)
+        };
+
+        reader.parse_xml()
     }
 
-    pub fn parse_xml(self) -> Result<RefCell<XMLNode>, XMLError> {
+    fn parse_xml(self) -> Result<RefCell<XMLNode>, XMLError> {
         let mut root: Option<ChildNodeRef> = None;
         let mut parents: Vec<ChildNodeRef> = vec![];
 

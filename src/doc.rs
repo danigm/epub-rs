@@ -4,6 +4,7 @@
 //! chapters, etc.
 
 use anyhow::{anyhow, Error};
+use xmlutils::XMLError;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fs::File;
@@ -151,7 +152,6 @@ impl<R: Read + Seek> EpubDoc<R> {
         let container = archive.get_container_file()?;
         let root_file = get_root_file(container)?;
         let base_path = root_file.parent().expect("All files have a parent");
-
         let mut doc = EpubDoc {
             archive,
             spine,
@@ -164,9 +164,7 @@ impl<R: Read + Seek> EpubDoc<R> {
             extra_css: vec![],
             unique_identifier: None,
         };
-
         doc.fill_resources()?;
-
         Ok(doc)
     }
 
@@ -630,36 +628,24 @@ impl<R: Read + Seek> EpubDoc<R> {
 
     fn fill_resources(&mut self) -> Result<(), Error> {
         let container = self.archive.get_entry(&self.root_file)?;
-        let xml = xmlutils::XMLReader::new(container.as_slice());
-        let root = xml.parse_xml()?;
-
+        let root = xmlutils::XMLReader::parse(container.as_slice())?;
         let unique_identifier_id = &root.borrow().get_attr("unique-identifier").ok();
-
         // resources from manifest
         let manifest = root.borrow().find("manifest")?;
         for r in manifest.borrow().childs.iter() {
             let item = r.borrow();
-            let id = item.get_attr("id")?;
-            let href = item.get_attr("href")?;
-            let mtype = item.get_attr("media-type")?;
-            let path = self.convert_path_separators(&href);
-            self.resources
-                .insert(id, (path, mtype));
+            let _ = self.insert_resource(&item);
         }
-
         // items from spine
         let spine = root.borrow().find("spine")?;
         for r in spine.borrow().childs.iter() {
             let item = r.borrow();
-            let id = item.get_attr("idref")?;
-            self.spine.push(id);
+            let _ = self.insert_spine(&item);
         }
-
         // toc.ncx
         if let Ok(toc) = spine.borrow().get_attr("toc") {
             let _ = self.fill_toc(&toc);
         }
-
         // metadata
         let metadata = root.borrow().find("metadata")?;
         for r in metadata.borrow().childs.iter() {
@@ -699,7 +685,22 @@ impl<R: Read + Seek> EpubDoc<R> {
                 }
             }
         }
+        Ok(())
+    }
 
+    fn insert_resource(&mut self, item: &xmlutils::XMLNode) -> Result<(), XMLError> {
+        let id = item.get_attr("id")?;
+        let href = item.get_attr("href")?;
+        let mtype = item.get_attr("media-type")?;
+        let path = self.convert_path_separators(&href);
+        self.resources
+            .insert(id, (path, mtype));
+        Ok(())
+    }
+
+    fn insert_spine(&mut self, item:&xmlutils::XMLNode) -> Result<(), XMLError> {
+        let id = item.get_attr("idref")?;
+        self.spine.push(id);
         Ok(())
     }
 
@@ -710,8 +711,7 @@ impl<R: Read + Seek> EpubDoc<R> {
             .ok_or_else(|| anyhow!("No toc found"))?;
 
         let container = self.archive.get_entry(&toc_res.0)?;
-        let xml = xmlutils::XMLReader::new(container.as_slice());
-        let root = xml.parse_xml()?;
+        let root = xmlutils::XMLReader::parse(container.as_slice())?;
 
         let mapnode = root.borrow().find("navMap")?;
 
@@ -771,8 +771,7 @@ impl<R: Read + Seek> EpubDoc<R> {
 }
 
 fn get_root_file(container: Vec<u8>) -> Result<PathBuf, Error> {
-    let xml = xmlutils::XMLReader::new(container.as_slice());
-    let root = xml.parse_xml()?;
+    let root = xmlutils::XMLReader::parse(container.as_slice())?;
     let el = root.borrow();
     let element = el.find("rootfile")?;
     let el2 = element.borrow();
