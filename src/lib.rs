@@ -1,5 +1,5 @@
 //! EPUB library
-//! lib to read and navigate throught an epub file contents
+//! lib to read and navigate through an epub file contents
 //!
 //! # Examples
 //!

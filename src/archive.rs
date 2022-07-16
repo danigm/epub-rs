@@ -1,6 +1,6 @@
 //! Manages the zip component part of the epub doc.
 //!
-//! Provides easy methods to navigate througth the epub parts and to get
+//! Provides easy methods to navigate through the epub parts and to get
 //! the content as string.
 
 use anyhow::Error;

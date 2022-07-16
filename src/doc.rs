@@ -1,6 +1,6 @@
 //! Manages the epub doc.
 //!
-//! Provides easy methods to navigate througth the epub content, cover,
+//! Provides easy methods to navigate through the epub content, cover,
 //! chapters, etc.
 
 use anyhow::{anyhow, Error};
