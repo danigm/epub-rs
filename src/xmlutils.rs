@@ -151,7 +151,7 @@ impl fmt::Display for XMLError {
 impl From<EmitterError> for XMLError {
     fn from(_: EmitterError) -> XMLError {
         XMLError {
-            error: String::from("Problem writting"),
+            error: String::from("Problem writing"),
         }
     }
 }
