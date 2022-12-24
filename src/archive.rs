@@ -12,6 +12,7 @@ use std::io::{Read, Seek};
 
 /// Epub archive struct. Here it's stored the file path and the list of
 /// files in the zip archive.
+#[derive(Clone, Debug)]
 pub struct EpubArchive<R: Read + Seek> {
     zip: zip::ZipArchive<R>,
     pub path: PathBuf,
