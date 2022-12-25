@@ -790,9 +790,9 @@ fn build_epub_uri<P: AsRef<Path>>(path: P, append: &str) -> String {
 
     // If on Windows, replace all Windows path separators with Unix path separators
     let path = if cfg!(windows) {
-        cpath.display().to_string().replace('\\', "/")
+        cpath.to_string_lossy().replace('\\', "/")
     } else {
-        cpath.display().to_string()
+        cpath.to_string_lossy().to_string()
     };
 
     format!("epub://{}", path)
