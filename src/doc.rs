@@ -676,12 +676,25 @@ impl<R: Read + Seek> EpubDoc<R> {
         Ok(())
     }
 
+    // Forcibly converts separators in a filepath to unix separators to
+    // to ensure that ZipArchive's by_name method will retrieve the proper
+    // file. Failing to convert to unix-style on Windows causes the
+    // ZipArchive not to find the file.
+    fn convert_path_seps<P: AsRef<Path>>(&self, href: P) -> PathBuf {
+        let mut path = self.root_base.join(href);
+        if cfg!(windows) {
+            path = PathBuf::from(path.to_string_lossy().replace('\\', "/"));
+        }
+        path
+    }
+
     fn insert_resource(&mut self, item: &xmlutils::XMLNode) -> Result<(), XMLError> {
         let id = item.get_attr("id")?;
         let href = item.get_attr("href")?;
         let mtype = item.get_attr("media-type")?;
-        let path = self.root_base.join(href);
-        self.resources.insert(id, (path, mtype));
+
+        self.resources
+            .insert(id, (self.convert_path_seps(href), mtype));
         Ok(())
     }
 
