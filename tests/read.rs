@@ -19,10 +19,10 @@ fn read_doc() {
         for (k, v) in doc.resources.iter() {
             println!("{}: {}\n * {}\n", k, v.1, v.0.display());
         }
-        println!("");
+        println!();
     }
 
-    while let Ok(_) = doc.go_next() {
+    while doc.go_next().is_ok() {
         println!("ID: {}", doc.get_current_id().unwrap());
         let current = doc.get_current_str();
         match current {

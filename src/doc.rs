@@ -4,13 +4,13 @@
 //! chapters, etc.
 
 use anyhow::{anyhow, Error};
-use xmlutils::XMLError;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::{Read, Seek};
 use std::path::{Component, Path, PathBuf};
+use xmlutils::XMLError;
 
 use crate::archive::EpubArchive;
 
@@ -601,7 +601,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     pub fn resource_uri_to_chapter(&self, uri: &PathBuf) -> Option<usize> {
         for (k, (path, _mime)) in self.resources.iter() {
             if path == uri {
-                return self.resource_id_to_chapter(&k);
+                return self.resource_id_to_chapter(k);
             }
         }
 
@@ -612,19 +612,6 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// If the resourse isn't in the spine list, None will be returned
     pub fn resource_id_to_chapter(&self, uri: &str) -> Option<usize> {
         self.spine.iter().position(|item| item == uri)
-    }
-
-    // Forcibly converts separators in a filepath to unix separators to
-    // to ensure that ZipArchive's by_name method will retrieve the proper
-    // file. Failing to convert to unix-style on Windows causes the
-    // ZipArchive not to find the file.
-    fn convert_path_separators(&self, href: &str) -> PathBuf {
-        let path = self.root_base.join(href.split("/").collect::<PathBuf>());
-        if cfg!(windows) {
-            let path = path.as_path().display().to_string().replace("\\", "/");
-            return PathBuf::from(path);
-        }
-        PathBuf::from(path)
     }
 
     fn fill_resources(&mut self) -> Result<(), Error> {
@@ -653,13 +640,13 @@ impl<R: Read + Seek> EpubDoc<R> {
             let item = r.borrow();
             if item.name.local_name == "meta" {
                 if let (Ok(k), Ok(v)) = (item.get_attr("name"), item.get_attr("content")) {
-                    self.metadata.entry(k).or_insert(vec![]).push(v);
+                    self.metadata.entry(k).or_default().push(v);
                 } else if let Ok(k) = item.get_attr("property") {
                     let v = match item.text {
                         Some(ref x) => x.to_string(),
                         None => String::from(""),
                     };
-                    self.metadata.entry(k).or_insert(vec![]).push(v);
+                    self.metadata.entry(k).or_default().push(v);
                 }
             } else {
                 let k = &item.name.local_name;
@@ -689,17 +676,29 @@ impl<R: Read + Seek> EpubDoc<R> {
         Ok(())
     }
 
+    // Forcibly converts separators in a filepath to unix separators to
+    // to ensure that ZipArchive's by_name method will retrieve the proper
+    // file. Failing to convert to unix-style on Windows causes the
+    // ZipArchive not to find the file.
+    fn convert_path_seps<P: AsRef<Path>>(&self, href: P) -> PathBuf {
+        let mut path = self.root_base.join(href);
+        if cfg!(windows) {
+            path = PathBuf::from(path.to_string_lossy().replace('\\', "/"));
+        }
+        path
+    }
+
     fn insert_resource(&mut self, item: &xmlutils::XMLNode) -> Result<(), XMLError> {
         let id = item.get_attr("id")?;
         let href = item.get_attr("href")?;
         let mtype = item.get_attr("media-type")?;
-        let path = self.convert_path_separators(&href);
+
         self.resources
-            .insert(id, (path, mtype));
+            .insert(id, (self.convert_path_seps(href), mtype));
         Ok(())
     }
 
-    fn insert_spine(&mut self, item:&xmlutils::XMLNode) -> Result<(), XMLError> {
+    fn insert_spine(&mut self, item: &xmlutils::XMLNode) -> Result<(), XMLError> {
         let id = item.get_attr("idref")?;
         self.spine.push(id);
         Ok(())
@@ -734,10 +733,7 @@ impl<R: Read + Seek> EpubDoc<R> {
             if item.name.local_name != "navPoint" {
                 continue;
             }
-            let play_order = item
-                .get_attr("playOrder")
-                .ok()
-                .and_then(|n| usize::from_str_radix(&n, 10).ok());
+            let play_order = item.get_attr("playOrder").ok().and_then(|n| n.parse().ok());
             let content = match item.find("content") {
                 Ok(c) => c
                     .borrow()
@@ -807,9 +803,9 @@ fn build_epub_uri<P: AsRef<Path>>(path: P, append: &str) -> String {
 
     // If on Windows, replace all Windows path separators with Unix path separators
     let path = if cfg!(windows) {
-        cpath.display().to_string().replace("\\", "/")
+        cpath.to_string_lossy().replace('\\', "/")
     } else {
-        cpath.display().to_string()
+        cpath.to_string_lossy().to_string()
     };
 
     format!("epub://{}", path)

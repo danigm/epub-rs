@@ -30,11 +30,12 @@ impl<'a> XMLReader<'a> {
         //If there is a UTF-8 BOM marker, ignore it
         let content_slice = if content[0..3] == [0xefu8, 0xbbu8, 0xbfu8] {
             &content[3..]
-        } else if content[0..2] == [0xfeu8, 0xffu8] || content[0..2] == [0xffu8, 0xfeu8] { //handle utf-16
+        } else if content[0..2] == [0xfeu8, 0xffu8] || content[0..2] == [0xffu8, 0xfeu8] {
+            //handle utf-16
             let (big_byte, small_byte) = if content[0] == 0xfeu8 {
-                (1,0) //big endian utf-16
+                (1, 0) //big endian utf-16
             } else {
-                (0,1) //little endian utf-16
+                (0, 1) //little endian utf-16
             };
             let content_u16: Vec<u16> = content[2..]
                 .chunks_exact(2)
@@ -52,7 +53,7 @@ impl<'a> XMLReader<'a> {
                 .add_entity("nbsp", " ")
                 .add_entity("copy", "©")
                 .add_entity("reg", "®")
-                .create_reader(content_slice)
+                .create_reader(content_slice),
         };
 
         reader.parse_xml()
@@ -84,7 +85,7 @@ impl<'a> XMLReader<'a> {
                         let current = parents.last();
                         if let Some(c) = current {
                             c.borrow_mut().childs.push(arnode.clone());
-                            arnode.borrow_mut().parent = Some(Rc::downgrade(&c));
+                            arnode.borrow_mut().parent = Some(Rc::downgrade(c));
                         }
                     }
                     parents.push(arnode.clone());
@@ -260,8 +261,7 @@ where
                     {
                         for i in 0..attributes.len() {
                             let mut attr = attributes[i].to_owned();
-                            let repl =
-                                closure(&name.local_name, &attr.name.local_name, &attr.value);
+                            let repl = closure(name.local_name, &attr.name.local_name, &attr.value);
                             attr.value = repl;
                             attrs.push(attr);
                         }
