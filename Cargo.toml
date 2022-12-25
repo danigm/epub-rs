@@ -5,10 +5,7 @@ Library to support the reading of epub files.
 """
 documentation = "https://docs.rs/epub/"
 exclude = ["test.epub"]
-keywords = [
-    "epub",
-    "ebook",
-]
+keywords = ["epub", "ebook"]
 license = "GPL-3.0"
 name = "epub"
 repository = "https://github.com/danigm/epub-rs.git"
@@ -18,6 +15,6 @@ edition = "2018"
 [dependencies]
 regex = "1.4.2"
 xml-rs = "0.8.3"
-zip = { version = "0.6.3", default-features = false, features = ["deflate"]}
+zip = { version = "0.5.13", default-features = false, features = ["deflate"] } # we can't upgrade because of MSRV
 percent-encoding = "2.1.0"
 anyhow = "1.0.34"
