@@ -14,9 +14,6 @@ on:
             - "Cargo.toml"
             - "**/*.epub"
 
-env:
-    CARGO_TERM_COLOR: always
-
 jobs:
     build:
         runs-on: ${{ matrix.os }}
@@ -27,6 +24,8 @@ jobs:
                 rust: [stable, 1.42.0]
         steps:
             - uses: actions/checkout@v2
-            - uses: dtolnay/rust-toolchain@${{ matrix.rust }}
+            - uses: dtolnay/rust-toolchain@master
+              with:
+                  toolchain: ${{ matrix.rust }}
             - run: cargo build --verbose
             - run: cargo test --verbose
