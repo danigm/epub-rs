@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::rc::Weak;
+use xml::attribute::OwnedAttribute;
 use xml::reader::Error as ReaderError;
 use xml::reader::EventReader;
 use xml::reader::ParserConfig;
@@ -8,7 +9,6 @@ use xml::reader::ParserConfig;
 use xml::reader::XmlEvent as ReaderEvent;
 use xml::writer::XmlEvent as WriterEvent;
 
-use std::error::Error;
 use std::fmt;
 use xml::writer::EmitterConfig;
 use xml::writer::Error as EmitterError;
@@ -19,6 +19,20 @@ use std::borrow::Cow;
 // Using rc because a Node will be referenced by its parent and by its childs.
 type ChildNodeRef = Rc<RefCell<XMLNode>>;
 type ParentNodeRef = Weak<RefCell<XMLNode>>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum XMLError {
+    #[error("XML Reader Error: {0}")]
+    Reader(#[from] ReaderError),
+    #[error("XML Writer Error: {0}")]
+    Emitter(#[from] EmitterError),
+    #[error("Attribute Not Found: {0}")]
+    AttrNotFound(String),
+    #[error("Invalid State; this is a bug")]
+    InvalidState,
+    #[error("No XML Elements Found")]
+    NoElements,
+}
 
 pub struct XMLReader<'a> {
     reader: EventReader<&'a [u8]>,
@@ -77,14 +91,14 @@ impl<'a> XMLReader<'a> {
                         parent: None,
                         text: None,
                         cdata: None,
-                        childs: vec![],
+                        children: vec![],
                     };
                     let arnode = Rc::new(RefCell::new(node));
 
                     {
                         let current = parents.last();
                         if let Some(c) = current {
-                            c.borrow_mut().childs.push(arnode.clone());
+                            c.borrow_mut().children.push(arnode.clone());
                             arnode.borrow_mut().parent = Some(Rc::downgrade(c));
                         }
                     }
@@ -119,49 +133,10 @@ impl<'a> XMLReader<'a> {
             let a = Rc::try_unwrap(r);
             match a {
                 Ok(n) => return Ok(n),
-                Err(_) => {
-                    return Err(XMLError {
-                        error: String::from("Unknown error"),
-                    })
-                }
+                Err(_) => return Err(XMLError::InvalidState),
             }
         }
-        Err(XMLError {
-            error: String::from("Not xml elements"),
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct XMLError {
-    pub error: String,
-}
-
-impl Error for XMLError {
-    fn description(&self) -> &str {
-        &self.error
-    }
-}
-
-impl fmt::Display for XMLError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "XMLError: {}", self.error)
-    }
-}
-
-impl From<EmitterError> for XMLError {
-    fn from(_: EmitterError) -> XMLError {
-        XMLError {
-            error: String::from("Problem writing"),
-        }
-    }
-}
-
-impl From<ReaderError> for XMLError {
-    fn from(_: ReaderError) -> XMLError {
-        XMLError {
-            error: String::from("Problem reading"),
-        }
+        Err(XMLError::NoElements)
     }
 }
 
@@ -173,48 +148,43 @@ pub struct XMLNode {
     pub text: Option<String>,
     pub cdata: Option<String>,
     pub parent: Option<ParentNodeRef>,
-    pub childs: Vec<ChildNodeRef>,
+    pub children: Vec<ChildNodeRef>,
 }
 
 impl XMLNode {
-    pub fn get_attr(&self, name: &str) -> Result<String, XMLError> {
-        for attr in self.attrs.iter() {
-            if attr.name.local_name == name {
-                return Ok(attr.value.to_string());
-            }
-        }
-
-        Err(XMLError {
-            error: String::from("attr not found"),
-        })
+    pub fn get_attr(&self, name: &str) -> Option<String> {
+        self.attrs
+            .iter()
+            .find(|a| a.name.local_name == name)
+            .map(|a| a.value.clone())
     }
 
-    pub fn find(&self, tag: &str) -> Result<ChildNodeRef, XMLError> {
-        for c in self.childs.iter() {
-            if c.borrow().name.local_name == tag {
-                return Ok(c.clone());
-            } else if let Ok(n) = c.borrow().find(tag) {
-                return Ok(n);
+    pub fn find(&self, tag: &str) -> Option<ChildNodeRef> {
+        for r in &self.children {
+            let c = r.borrow();
+            if c.name.local_name == tag {
+                return Some(r.clone());
+            } else if let Some(n) = c.find(tag) {
+                return Some(n);
             }
         }
-        Err(XMLError {
-            error: String::from("tag not found"),
-        })
+
+        None
     }
 }
 
 impl fmt::Display for XMLNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let childs: String = self.childs.iter().fold(String::from(""), |sum, x| {
-            sum + &format!("{}", *x.borrow()) + "\n\t"
+        let childs: String = self.children.iter().fold(String::new(), |sum, x| {
+            format!("{}{}\n\t", sum, *x.borrow())
         });
         let attrs: String = self
             .attrs
             .iter()
-            .fold(String::from(""), |sum, x| sum + &x.name.local_name + ", ");
+            .fold(String::new(), |sum, x| sum + &x.name.local_name + ", ");
 
         let t = self.text.as_ref();
-        let mut text = String::from("");
+        let mut text = String::new();
         if let Some(t) = t {
             text.clone_from(t);
         }
@@ -248,9 +218,8 @@ where
             .create_writer(&mut b);
 
         for e in reader {
-            match e {
-                ev @ Ok(ReaderEvent::StartElement { .. }) => {
-                    let ev = ev.unwrap();
+            match e? {
+                ev @ ReaderEvent::StartElement { .. } => {
                     let mut attrs: Vec<xml::attribute::OwnedAttribute> = vec![];
 
                     if let Some(WriterEvent::StartElement {
@@ -268,18 +237,20 @@ where
 
                         let w = WriterEvent::StartElement {
                             name,
-                            attributes: Cow::Owned(attrs.iter().map(|x| x.borrow()).collect()),
+                            attributes: Cow::Owned(
+                                attrs.iter().map(OwnedAttribute::borrow).collect(),
+                            ),
                             //attributes: attributes,
                             namespace,
                         };
                         writer.write(w)?;
                     }
                 }
-                Ok(ReaderEvent::EndElement { name: n }) => {
+                ReaderEvent::EndElement { name: n } => {
                     if n.local_name.to_lowercase() == "head" && !extra_css.is_empty() {
                         // injecting here the extra css
                         let mut allcss = extra_css.concat();
-                        allcss = String::from("*/") + &allcss + "/*";
+                        allcss = format!("*/ {} /*", allcss);
 
                         writer.write(WriterEvent::start_element("style"))?;
                         writer.write("/*")?;
@@ -289,15 +260,10 @@ where
                     }
                     writer.write(WriterEvent::end_element())?;
                 }
-                ev @ Ok(_) => {
-                    if let Some(e) = ev?.as_writer_event() {
+                ev => {
+                    if let Some(e) = ev.as_writer_event() {
                         writer.write(e)?;
                     }
-                }
-                Err(err) => {
-                    return Err(XMLError {
-                        error: String::from(err.msg()),
-                    })
                 }
             }
         }

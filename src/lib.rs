@@ -1,3 +1,11 @@
+#![warn(clippy::pedantic, clippy::nursery)]
+#![allow(
+    clippy::module_name_repetitions,
+    clippy::uninlined_format_args,
+    clippy::missing_const_for_fn,
+    clippy::let_underscore_drop
+)]
+
 //! EPUB library
 //! lib to read and navigate through an epub file contents
 //!
@@ -15,7 +23,7 @@
 //!
 //! ## Getting doc metatada
 //!
-//! Metadata is a HashMap storing all metadata defined in the epub
+//! Metadata is a [`HashMap`] storing all metadata defined in the epub
 //!
 //! ```
 //! # use epub::doc::EpubDoc;
