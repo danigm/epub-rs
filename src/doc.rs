@@ -17,7 +17,7 @@ use crate::archive::EpubArchive;
 use crate::xmlutils;
 
 /// Struct that represent a navigation point in a table of content
-#[derive(Eq)]
+#[derive(Clone, Debug, Eq)]
 pub struct NavPoint {
     /// the title of this navpoint
     pub label: String,
@@ -48,6 +48,7 @@ impl PartialEq for NavPoint {
 }
 
 /// Struct to control the epub document
+#[derive(Clone, Debug)]
 pub struct EpubDoc<R: Read + Seek> {
     /// the zip archive
     archive: EpubArchive<R>,
