@@ -205,7 +205,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// assert!(doc.is_ok());
     /// let mut doc = doc.unwrap();
     ///
-    /// let cover_id = doc.get_cover_id().unwrap();
+    /// let cover_id = doc.get_cover_id();
     /// ```
     ///
     /// This returns the cover id, which can be used to get the cover data.
@@ -386,7 +386,9 @@ impl<R: Read + Seek> EpubDoc<R> {
         let resp = xmlutils::replace_attrs(
             current.as_slice(),
             |element, attr, value| match (element, attr) {
-                ("link" | "image" | "a", "href") | ("img", "src") => build_epub_uri(&path, value),
+                ("link", "href") | ("image", "href") | ("a", "href") | ("img", "src") => {
+                    build_epub_uri(&path, value)
+                }
                 _ => String::from(value),
             },
             &self.extra_css,
@@ -464,7 +466,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// for i in 1..len {
     ///     doc.go_next();
     /// }
-    /// assert!(doc.go_next().is_err());
+    /// assert!(!doc.go_next());
     /// ```
     ///
     /// Returns [`false`] if the current chapter is the last one
@@ -485,7 +487,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// # use epub::doc::EpubDoc;
     /// # let doc = EpubDoc::new("test.epub");
     /// # let mut doc = doc.unwrap();
-    /// assert!(doc.go_prev().is_err());
+    /// assert!(!doc.go_prev());
     ///
     /// doc.go_next(); // 000.xhtml
     /// doc.go_next(); // 001.xhtml
@@ -535,7 +537,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// doc.set_current_page(2);
     /// assert_eq!("001.xhtml", doc.get_current_id().unwrap());
     /// assert_eq!(2, doc.get_current_page());
-    /// assert!(doc.set_current_page(50).is_err());
+    /// assert!(!doc.set_current_page(50));
     /// ```
     ///
     /// Returns [`false`] if the page is out of bounds
