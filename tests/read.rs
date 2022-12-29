@@ -22,12 +22,12 @@ fn read_doc() {
         println!();
     }
 
-    while doc.go_next().is_ok() {
+    while doc.go_next() {
         println!("ID: {}", doc.get_current_id().unwrap());
         let current = doc.get_current_str();
         match current {
-            Ok(v) => println!("Value {:?}\n", v),
-            Err(e) => println!("Text Err {:?}\n", e),
+            Some((v, m)) => println!("Value {:?}, Mime {:?}\n", v, m),
+            None => println!("Not Found\n"),
         }
     }
 }

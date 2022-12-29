@@ -1,3 +1,14 @@
+#![warn(clippy::pedantic, clippy::nursery)]
+#![allow(
+    clippy::module_name_repetitions,
+    clippy::let_underscore_drop,
+
+    // for MSRV
+    clippy::unnested_or_patterns,
+    clippy::uninlined_format_args,
+    clippy::missing_const_for_fn,
+)]
+
 //! EPUB library
 //! lib to read and navigate through an epub file contents
 //!
@@ -15,7 +26,7 @@
 //!
 //! ## Getting doc metatada
 //!
-//! Metadata is a HashMap storing all metadata defined in the epub
+//! Metadata is a [`HashMap`] storing all metadata defined in the epub
 //!
 //! ```
 //! # use epub::doc::EpubDoc;
@@ -75,7 +86,7 @@
 //! doc.set_current_page(2);
 //! assert_eq!("001.xhtml", doc.get_current_id().unwrap());
 //! assert_eq!(2, doc.get_current_page());
-//! assert!(doc.set_current_page(50).is_err());
+//! assert!(!doc.set_current_page(50));
 //!
 //! // doc.get_current() will return a Vec<u8> with the current page content
 //! // doc.get_current_str() will return a String with the current page content

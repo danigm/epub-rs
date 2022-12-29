@@ -9,12 +9,14 @@ keywords = ["epub", "ebook"]
 license = "GPL-3.0"
 name = "epub"
 repository = "https://github.com/danigm/epub-rs.git"
-version = "1.2.4"
+version = "2.0.0"
 edition = "2018"
 
 [dependencies]
 regex = "1.4.2"
 xml-rs = "0.8.3"
-zip = { version = "0.5.13", default-features = false, features = ["deflate"] } # we can't upgrade because of MSRV
+zip = { version = "0.5.13", default-features = false, features = [
+    "deflate",
+] } # we can't upgrade because of MSRV
 percent-encoding = "2.1.0"
-anyhow = "1.0.34"
+thiserror = "1.0"
