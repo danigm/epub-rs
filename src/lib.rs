@@ -26,7 +26,7 @@
 //!
 //! ## Getting doc metatada
 //!
-//! Metadata is a [`HashMap`] storing all metadata defined in the epub
+//! Metadata is a [`HashMap`](std::collections::HashMap) storing all metadata defined in the epub
 //!
 //! ```
 //! # use epub::doc::EpubDoc;
@@ -40,9 +40,9 @@
 //!
 //! In the resources var is stored each resource defined
 //! in the epub indexed by the id and with the full internal
-//! path and mimetype. It's a HashMap<a: String, (b: String, c: String)>
-//! where 'a' is the resource id, 'b' is the resource full path and
-//! 'c' is the resource mimetype
+//! path and mimetype. It's a `HashMap<a: String, (b: String, c: String)>`
+//! where `a` is the resource id, `b` is the resource full path and
+//! `c` is the resource mimetype
 //!
 //! ```
 //! # use epub::doc::EpubDoc;
@@ -57,7 +57,7 @@
 //!
 //! ## Navigating using the spine
 //!
-//! Spine is a Vec<String> storing the epub spine as resources ids
+//! Spine is a `Vec<String>` storing the epub spine as resources ids
 //!
 //! ```
 //! # use epub::doc::EpubDoc;
