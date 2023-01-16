@@ -78,7 +78,7 @@ pub struct EpubDoc<R: Read + Seek> {
 
     /// The epub metadata stored as key -> value
     ///
-    /// #Examples
+    /// # Examples
     ///
     /// ```
     /// # use epub::doc::EpubDoc;
@@ -180,7 +180,7 @@ impl<R: Read + Seek> EpubDoc<R> {
 
     /// Returns the first metadata found with this name.
     ///
-    /// #Examples
+    /// # Examples
     ///
     /// ```
     /// # use epub::doc::EpubDoc;
@@ -194,7 +194,7 @@ impl<R: Read + Seek> EpubDoc<R> {
 
     /// Returns the id of the epub cover.
     ///
-    /// The cover is searched in the doc metadata, by the tag <meta name="cover" value"..">
+    /// The cover is searched in the doc metadata, by the tag `<meta name="cover" value"..">`
     ///
     /// # Examples
     ///
