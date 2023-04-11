@@ -9,7 +9,7 @@ keywords = ["epub", "ebook"]
 license = "GPL-3.0"
 name = "epub"
 repository = "https://github.com/danigm/epub-rs.git"
-version = "2.0.0"
+version = "2.1.0"
 edition = "2018"
 
 [dependencies]
