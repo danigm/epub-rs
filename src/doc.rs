@@ -600,6 +600,25 @@ impl<R: Read + Seek> EpubDoc<R> {
         let root = xmlutils::XMLReader::parse(container.as_slice())?;
         let unique_identifier_id = &root.borrow().get_attr("unique-identifier");
 
+        // resources from manifest
+        // This should be run before everything else, because other functions relies on
+        // self.resources and should be filled before calling `fill_toc`
+        let manifest = root
+            .borrow()
+            .find("manifest")
+            .ok_or(DocError::InvalidEpub)?;
+        for r in &manifest.borrow().children {
+            let item = r.borrow();
+            if self.cover_id.is_none() {
+                if let (Some(id), Some(property)) = (item.get_attr("id"), item.get_attr("properties")) {
+                    if property == "cover-image" {
+                        self.cover_id = Some(id);
+                    }
+                }
+            }
+            let _ = self.insert_resource(&item);
+        }
+
         // items from spine
         let spine = root.borrow().find("spine").ok_or(DocError::InvalidEpub)?;
         for r in &spine.borrow().children {
@@ -652,22 +671,6 @@ impl<R: Read + Seek> EpubDoc<R> {
             }
         }
 
-        // resources from manifest
-        let manifest = root
-            .borrow()
-            .find("manifest")
-            .ok_or(DocError::InvalidEpub)?;
-        for r in &manifest.borrow().children {
-            let item = r.borrow();
-            if self.cover_id.is_none() {
-                if let (Some(id), Some(property)) = (item.get_attr("id"), item.get_attr("properties")) {
-                    if property == "cover-image" {
-                        self.cover_id = Some(id);
-                    }       
-                }
-            }
-            let _ = self.insert_resource(&item);
-        }
         Ok(())
     }
 
