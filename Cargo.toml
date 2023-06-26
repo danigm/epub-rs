@@ -13,10 +13,25 @@ version = "2.1.1"
 edition = "2021"
 
 [dependencies]
-regex = "1.8.4"
 xml-rs = "0.8.14"
-zip = { version = "0.6.6", default-features = false, features = [
-    "deflate",
-] }
 percent-encoding = "2.3.0"
 thiserror = "1.0.40"
+
+[dependencies.zip]
+version = "0.6.6"
+default-features = false
+features = [
+    "deflate",
+]
+
+[dependencies.regex]
+version = "1.8.4"
+default-features = false
+# regex currently requires the standard library, you must re-enable it.
+features = [
+    "std",
+    "unicode",
+    "perf-cache",
+    "perf-dfa",
+    "perf-inline",
+]
