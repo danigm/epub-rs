@@ -100,6 +100,9 @@ pub struct EpubDoc<R: Read + Seek> {
 
     /// unique identifier
     pub unique_identifier: Option<String>,
+
+    /// The id of the cover, if any
+    pub cover_id: Option<String>,
 }
 
 impl EpubDoc<BufReader<File>> {
@@ -173,6 +176,7 @@ impl<R: Read + Seek> EpubDoc<R> {
             current: 0,
             extra_css: vec![],
             unique_identifier: None,
+            cover_id: None,
         };
         doc.fill_resources()?;
         Ok(doc)
@@ -210,9 +214,8 @@ impl<R: Read + Seek> EpubDoc<R> {
     ///
     /// This returns the cover id, which can be used to get the cover data.
     /// The id is not guaranteed to be valid.
-    pub fn get_cover_id(&self) -> String {
-        self.mdata("cover")
-            .unwrap_or_else(|| "coverimagestandard".into())
+    pub fn get_cover_id(&self) -> Option<String> {
+        self.cover_id.clone()
     }
 
     /// Returns the cover's content and mime-type
@@ -239,8 +242,9 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// Returns [`None`] if the cover can't be found.
     pub fn get_cover(&mut self) -> Option<(Vec<u8>, String)> {
         let cover_id = self.get_cover_id();
-        let cover_data = self.get_resource(&cover_id)?;
-        Some(cover_data)
+        cover_id.and_then(|cid| {
+            self.get_resource(&cid)
+        })
     }
 
     /// Returns Release Identifier defined at
@@ -595,25 +599,19 @@ impl<R: Read + Seek> EpubDoc<R> {
         let container = self.archive.get_entry(&self.root_file)?;
         let root = xmlutils::XMLReader::parse(container.as_slice())?;
         let unique_identifier_id = &root.borrow().get_attr("unique-identifier");
-        // resources from manifest
-        let manifest = root
-            .borrow()
-            .find("manifest")
-            .ok_or(DocError::InvalidEpub)?;
-        for r in &manifest.borrow().children {
-            let item = r.borrow();
-            let _ = self.insert_resource(&item);
-        }
+
         // items from spine
         let spine = root.borrow().find("spine").ok_or(DocError::InvalidEpub)?;
         for r in &spine.borrow().children {
             let item = r.borrow();
             let _ = self.insert_spine(&item);
         }
+
         // toc.ncx
         if let Some(toc) = spine.borrow().get_attr("toc") {
             let _ = self.fill_toc(&toc);
         }
+
         // metadata
         let metadata = root
             .borrow()
@@ -623,6 +621,9 @@ impl<R: Read + Seek> EpubDoc<R> {
             let item = r.borrow();
             if item.name.local_name == "meta" {
                 if let (Some(k), Some(v)) = (item.get_attr("name"), item.get_attr("content")) {
+                    if k == "cover" {
+                        self.cover_id = Some(v.clone());
+                    }
                     self.metadata.entry(k).or_default().push(v);
                 } else if let Some(k) = item.get_attr("property") {
                     let v = item.text.clone().unwrap_or_default();
@@ -649,6 +650,23 @@ impl<R: Read + Seek> EpubDoc<R> {
                     self.metadata.insert(k.clone(), vec![v]);
                 }
             }
+        }
+
+        // resources from manifest
+        let manifest = root
+            .borrow()
+            .find("manifest")
+            .ok_or(DocError::InvalidEpub)?;
+        for r in &manifest.borrow().children {
+            let item = r.borrow();
+            if self.cover_id.is_none() {
+                if let (Some(id), Some(property)) = (item.get_attr("id"), item.get_attr("properties")) {
+                    if property == "cover-image" {
+                        self.cover_id = Some(id);
+                    }       
+                }
+            }
+            let _ = self.insert_resource(&item);
         }
         Ok(())
     }

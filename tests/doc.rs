@@ -36,7 +36,7 @@ fn doc_open() {
 
     {
         let cover = doc.get_cover_id();
-        assert_eq!(cover, "portada.png");
+        assert_eq!(cover, Some("portada.png".into()));
     }
 
     {
