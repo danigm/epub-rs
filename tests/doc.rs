@@ -22,6 +22,10 @@ fn doc_open() {
     }
 
     {
+        assert_eq!(None, doc.page_progression_direction);
+    }
+
+    {
         let unique_identifier = doc.unique_identifier.clone();
         assert_eq!(
             unique_identifier.unwrap(),

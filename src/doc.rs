@@ -103,6 +103,9 @@ pub struct EpubDoc<R: Read + Seek> {
 
     /// The id of the cover, if any
     pub cover_id: Option<String>,
+
+    /// The global direction in which the content flows
+    pub page_progression_direction: Option<String>,
 }
 
 impl EpubDoc<BufReader<File>> {
@@ -177,6 +180,7 @@ impl<R: Read + Seek> EpubDoc<R> {
             extra_css: vec![],
             unique_identifier: None,
             cover_id: None,
+            page_progression_direction: None,
         };
         doc.fill_resources()?;
         Ok(doc)
@@ -242,9 +246,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// Returns [`None`] if the cover can't be found.
     pub fn get_cover(&mut self) -> Option<(Vec<u8>, String)> {
         let cover_id = self.get_cover_id();
-        cover_id.and_then(|cid| {
-            self.get_resource(&cid)
-        })
+        cover_id.and_then(|cid| self.get_resource(&cid))
     }
 
     /// Returns Release Identifier defined at
@@ -610,7 +612,9 @@ impl<R: Read + Seek> EpubDoc<R> {
         for r in &manifest.borrow().children {
             let item = r.borrow();
             if self.cover_id.is_none() {
-                if let (Some(id), Some(property)) = (item.get_attr("id"), item.get_attr("properties")) {
+                if let (Some(id), Some(property)) =
+                    (item.get_attr("id"), item.get_attr("properties"))
+                {
                     if property == "cover-image" {
                         self.cover_id = Some(id);
                     }
@@ -630,6 +634,9 @@ impl<R: Read + Seek> EpubDoc<R> {
         if let Some(toc) = spine.borrow().get_attr("toc") {
             let _ = self.fill_toc(&toc);
         }
+
+        // page progression direction
+        self.page_progression_direction = spine.borrow().get_attr("page-progression-direction");
 
         // metadata
         let metadata = root
