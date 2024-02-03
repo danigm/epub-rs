@@ -32,6 +32,8 @@ pub enum XMLError {
     InvalidState,
     #[error("No XML Elements Found")]
     NoElements,
+    #[error("XML content is empty")]
+    NoContent,
 }
 
 pub struct XMLReader<'a> {
@@ -40,6 +42,11 @@ pub struct XMLReader<'a> {
 
 impl<'a> XMLReader<'a> {
     pub fn parse(content: &[u8]) -> Result<RefCell<XMLNode>, XMLError> {
+        // The operations below require at least 4 bytes to not panic
+        if content.is_empty() || content.len() < 4 {
+            return Err(XMLError::NoContent);
+        }
+
         let content_str;
         //If there is a UTF-8 BOM marker, ignore it
         let content_slice = if content[0..3] == [0xefu8, 0xbbu8, 0xbfu8] {
