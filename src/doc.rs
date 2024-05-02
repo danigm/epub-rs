@@ -248,7 +248,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     }
 
     /// Returns Release Identifier defined at
-    /// <https://www.w3.org/publishing/epub3/epub-packages.html#sec-metadata-elem-identifiers-pid>
+    /// https://www.w3.org/publishing/epub32/epub-packages.html#sec-metadata-elem-identifiers-pid
     pub fn get_release_identifier(&self) -> Option<String> {
         match (
             self.unique_identifier.as_ref(),
