@@ -109,7 +109,7 @@ impl EpubDoc<BufReader<File>> {
     /// Opens the epub file in `path`.
     ///
     /// Initialize some internal variables to be able to access to the epub
-    /// spine definition and to navigate trhough the epub.
+    /// spine definition and to navigate through the epub.
     ///
     /// # Examples
     ///
@@ -137,7 +137,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// Opens the epub contained in `reader`.
     ///
     /// Initialize some internal variables to be able to access to the epub
-    /// spine definition and to navigate trhough the epub.
+    /// spine definition and to navigate through the epub.
     ///
     /// # Examples
     ///
@@ -575,7 +575,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     }
 
     /// Function to convert a resource path to a chapter number in the spine
-    /// If the resourse isn't in the spine list, None will be returned
+    /// If the resource isn't in the spine list, None will be returned
     ///
     /// This method is useful to convert a toc [`NavPoint`] content to a chapter number
     /// to be able to navigate easily

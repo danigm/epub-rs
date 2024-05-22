@@ -24,7 +24,7 @@
 //!
 //! ```
 //!
-//! ## Getting doc metatada
+//! ## Getting doc metadata
 //!
 //! Metadata is a [`HashMap`](std::collections::HashMap) storing all metadata defined in the epub
 //!
