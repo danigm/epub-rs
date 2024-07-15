@@ -64,7 +64,7 @@
 //! # let doc = EpubDoc::new("test.epub");
 //! # let doc = doc.unwrap();
 //! assert_eq!(17, doc.spine.len());
-//! assert_eq!("titlepage.xhtml", doc.spine[0]);
+//! assert_eq!("titlepage.xhtml", doc.spine[0].idref);
 //! ```
 //!
 //! ## Navigation using the doc internal state

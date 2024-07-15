@@ -58,6 +58,14 @@ impl PartialEq for NavPoint {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct SpineItem {
+    pub idref: String,
+    pub id: Option<String>,
+    pub properties: Option<String>,
+    pub linear: bool,
+}
+
 /// Struct to control the epub document
 #[derive(Clone, Debug)]
 pub struct EpubDoc<R: Read + Seek> {
@@ -68,7 +76,7 @@ pub struct EpubDoc<R: Read + Seek> {
     current: usize,
 
     /// epub spine ids
-    pub spine: Vec<String>,
+    pub spine: Vec<SpineItem>,
 
     /// resource id -> (path, mime)
     pub resources: HashMap<String, (PathBuf, String)>,
@@ -452,7 +460,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     ///
     /// Can return [`None`] if the epub is broken.
     pub fn get_current_id(&self) -> Option<String> {
-        self.spine.get(self.current).cloned()
+        self.spine.get(self.current).cloned().map(|i| i.idref)
     }
 
     /// Changes current to the next chapter
@@ -592,7 +600,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// Function to convert a resource id to a chapter number in the spine
     /// If the resourse isn't in the spine list, None will be returned
     pub fn resource_id_to_chapter(&self, uri: &str) -> Option<usize> {
-        self.spine.iter().position(|item| item == uri)
+        self.spine.iter().position(|item| item.idref == uri)
     }
 
     fn fill_resources(&mut self) -> Result<(), DocError> {
@@ -703,10 +711,13 @@ impl<R: Read + Seek> EpubDoc<R> {
     }
 
     fn insert_spine(&mut self, item: &xmlutils::XMLNode) -> Result<(), DocError> {
-        let id = item
+        let idref = item
             .get_attr("idref")
             .ok_or_else(|| XMLError::AttrNotFound("idref".into()))?;
-        self.spine.push(id);
+        let linear = item.get_attr("linear").unwrap_or("yes".into()) == "yes";
+        let properties = item.get_attr("properties");
+        let id = item.get_attr("id");
+        self.spine.push(SpineItem { idref, id, linear, properties });
         Ok(())
     }
 
