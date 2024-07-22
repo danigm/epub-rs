@@ -18,7 +18,7 @@ fn doc_open() {
 
     {
         assert_eq!(17, doc.spine.len());
-        assert_eq!("titlepage.xhtml", doc.spine[0]);
+        assert_eq!("titlepage.xhtml", doc.spine[0].idref);
     }
 
     {
