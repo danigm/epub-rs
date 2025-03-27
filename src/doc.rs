@@ -113,6 +113,33 @@ pub struct EpubDoc<R: Read + Seek> {
     pub cover_id: Option<String>,
 }
 
+/// A EpubDoc used for testing purposes
+#[cfg(feature = "mock")]
+impl EpubDoc<std::io::Cursor<Vec<u8>>> {
+    pub fn mock() -> Result<Self, DocError> {
+        // binary for empty zip file so that archive can be created
+        let data: Vec<u8> = vec![
+            0x50, 0x4b, 0x05, 0x06, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00,
+            00, 00,
+        ];
+
+        let archive = EpubArchive::from_reader(std::io::Cursor::new(data))?;
+        Ok(Self {
+            archive,
+            spine: vec![],
+            toc: vec![],
+            resources: HashMap::new(),
+            metadata: HashMap::new(),
+            root_file: PathBuf::new(),
+            root_base: PathBuf::new(),
+            current: 0,
+            extra_css: vec![],
+            unique_identifier: None,
+            cover_id: None,
+        })
+    }
+}
+
 impl EpubDoc<BufReader<File>> {
     /// Opens the epub file in `path`.
     ///

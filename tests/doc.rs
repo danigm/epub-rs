@@ -2,6 +2,13 @@ use epub::doc::EpubDoc;
 use std::path::Path;
 
 #[test]
+#[cfg(feature = "mock")]
+fn doc_mock() {
+    let doc = EpubDoc::mock();
+    assert!(doc.is_ok());
+}
+
+#[test]
 fn doc_open() {
     let doc = EpubDoc::new("test.epub");
     assert!(doc.is_ok());
