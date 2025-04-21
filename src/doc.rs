@@ -27,6 +27,12 @@ pub enum DocError {
     InvalidEpub,
 }
 
+#[derive(Clone, Debug)]
+pub enum EpubVersion {
+    Version2_0,
+    Version3_0,
+}
+
 /// Struct that represent a navigation point in a table of content
 #[derive(Clone, Debug, Eq)]
 pub struct NavPoint {
@@ -74,6 +80,9 @@ pub struct EpubDoc<R: Read + Seek> {
 
     /// The current chapter, is an spine index
     current: usize,
+
+    /// epub spec version
+    pub version: EpubVersion,
 
     /// epub spine ids
     pub spine: Vec<SpineItem>,
@@ -202,6 +211,7 @@ impl<R: Read + Seek> EpubDoc<R> {
         let base_path = root_file.parent().expect("All files have a parent");
         let mut doc = Self {
             archive,
+            version: EpubVersion::Version2_0,
             spine: vec![],
             toc: vec![],
             resources: HashMap::new(),
@@ -633,6 +643,11 @@ impl<R: Read + Seek> EpubDoc<R> {
     fn fill_resources(&mut self) -> Result<(), DocError> {
         let container = self.archive.get_entry(&self.root_file)?;
         let root = xmlutils::XMLReader::parse(container.as_slice())?;
+        self.version = match root.borrow().get_attr("version") {
+            Some(v) if v == "2.0" => Ok(EpubVersion::Version2_0),
+            Some(v) if v == "3.0" => Ok(EpubVersion::Version3_0),
+            _ => Err(DocError::InvalidEpub),
+        }?;
         let unique_identifier_id = &root.borrow().get_attr("unique-identifier");
 
         // resources from manifest
