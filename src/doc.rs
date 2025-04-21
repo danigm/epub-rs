@@ -27,10 +27,11 @@ pub enum DocError {
     InvalidEpub,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum EpubVersion {
     Version2_0,
     Version3_0,
+    Unknown(String),
 }
 
 /// Struct that represent a navigation point in a table of content
@@ -644,10 +645,11 @@ impl<R: Read + Seek> EpubDoc<R> {
         let container = self.archive.get_entry(&self.root_file)?;
         let root = xmlutils::XMLReader::parse(container.as_slice())?;
         self.version = match root.borrow().get_attr("version") {
-            Some(v) if v == "2.0" => Ok(EpubVersion::Version2_0),
-            Some(v) if v == "3.0" => Ok(EpubVersion::Version3_0),
-            _ => Err(DocError::InvalidEpub),
-        }?;
+            Some(v) if v == "2.0" => EpubVersion::Version2_0,
+            Some(v) if v == "3.0" => EpubVersion::Version3_0,
+            Some(v) => EpubVersion::Unknown(String::from(v)),
+            _ => EpubVersion::Unknown(String::from("Unknown")),
+        };
         let unique_identifier_id = &root.borrow().get_attr("unique-identifier");
 
         // resources from manifest

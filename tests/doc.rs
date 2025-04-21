@@ -1,4 +1,5 @@
 use epub::doc::EpubDoc;
+use epub::doc::EpubVersion;
 use std::path::Path;
 
 #[test]
@@ -85,4 +86,14 @@ fn toc_test() {
         assert!(chapter.is_some());
         assert_eq!(nav.play_order, chapter.unwrap());
     }
+}
+
+#[test]
+fn version_test() {
+    let doc = EpubDoc::new("test.epub");
+    assert!(doc.is_ok());
+    let doc = doc.unwrap();
+
+    assert!(doc.version == EpubVersion::Version2_0);
+    assert!(doc.version < EpubVersion::Version3_0);
 }
