@@ -94,6 +94,9 @@ pub struct EpubDoc<R: Read + Seek> {
     /// table of content, list of `NavPoint` in the toc.ncx
     pub toc: Vec<NavPoint>,
 
+    /// title of toc
+    pub toc_title: String,
+
     /// The epub metadata stored as key -> value
     ///
     /// # Examples
@@ -215,6 +218,7 @@ impl<R: Read + Seek> EpubDoc<R> {
             version: EpubVersion::Version2_0,
             spine: vec![],
             toc: vec![],
+            toc_title: String::new(),
             resources: HashMap::new(),
             metadata: HashMap::new(),
             root_file: root_file.clone(),
@@ -771,6 +775,13 @@ impl<R: Read + Seek> EpubDoc<R> {
         let container = self.archive.get_entry(&toc_res.0)?;
         let root = xmlutils::XMLReader::parse(container.as_slice())?;
 
+        self.toc_title = root.borrow().find("docTitle").and_then(|dt| {
+            dt.borrow()
+                .children
+                .get(0)
+                .and_then(|t| t.borrow().text.clone())
+        }).unwrap_or_default();
+
         let mapnode = root
             .borrow()
             .find("navMap")
@@ -786,7 +797,6 @@ impl<R: Read + Seek> EpubDoc<R> {
     fn get_navpoints(&self, parent: &xmlutils::XMLNode) -> Vec<NavPoint> {
         let mut navpoints = Vec::new();
 
-        // TODO: get docTitle
         // TODO: parse metadata (dtb:totalPageCount, dtb:depth, dtb:maxPageNumber)
 
         for nav in &parent.children {
