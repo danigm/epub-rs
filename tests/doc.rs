@@ -89,6 +89,15 @@ fn toc_test() {
 }
 
 #[test]
+fn toc_title_test() {
+    let doc = EpubDoc::new("test.epub");
+    assert!(doc.is_ok());
+    let doc = doc.unwrap();
+
+    assert!(doc.toc_title == "Todo es mío");
+}
+
+#[test]
 fn version_test() {
     let doc = EpubDoc::new("test.epub");
     assert!(doc.is_ok());
