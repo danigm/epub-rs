@@ -9,7 +9,7 @@ keywords = ["epub", "ebook"]
 license = "GPL-3.0"
 name = "epub"
 repository = "https://github.com/danigm/epub-rs.git"
-version = "2.1.3"
+version = "2.1.4"
 edition = "2021"
 
 [dependencies]
@@ -21,7 +21,7 @@ thiserror = "2.0.12"
 mock = []
 
 [dependencies.zip]
-version = "2.6.1"
+version = "3.0.0"
 default-features = false
 features = [
     "deflate",
