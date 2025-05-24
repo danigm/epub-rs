@@ -292,9 +292,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// Returns [`None`] if the cover can't be found.
     pub fn get_cover(&mut self) -> Option<(Vec<u8>, String)> {
         let cover_id = self.get_cover_id();
-        cover_id.and_then(|cid| {
-            self.get_resource(&cid)
-        })
+        cover_id.and_then(|cid| self.get_resource(&cid))
     }
 
     /// Returns Release Identifier defined at
@@ -666,7 +664,9 @@ impl<R: Read + Seek> EpubDoc<R> {
         for r in &manifest.borrow().children {
             let item = r.borrow();
             if self.cover_id.is_none() {
-                if let (Some(id), Some(property)) = (item.get_attr("id"), item.get_attr("properties")) {
+                if let (Some(id), Some(property)) =
+                    (item.get_attr("id"), item.get_attr("properties"))
+                {
                     if property == "cover-image" {
                         self.cover_id = Some(id);
                     }
@@ -765,7 +765,12 @@ impl<R: Read + Seek> EpubDoc<R> {
         let linear = item.get_attr("linear").unwrap_or("yes".into()) == "yes";
         let properties = item.get_attr("properties");
         let id = item.get_attr("id");
-        self.spine.push(SpineItem { idref, id, linear, properties });
+        self.spine.push(SpineItem {
+            idref,
+            id,
+            linear,
+            properties,
+        });
         Ok(())
     }
 
@@ -775,12 +780,16 @@ impl<R: Read + Seek> EpubDoc<R> {
         let container = self.archive.get_entry(&toc_res.0)?;
         let root = xmlutils::XMLReader::parse(container.as_slice())?;
 
-        self.toc_title = root.borrow().find("docTitle").and_then(|dt| {
-            dt.borrow()
-                .children
-                .get(0)
-                .and_then(|t| t.borrow().text.clone())
-        }).unwrap_or_default();
+        self.toc_title = root
+            .borrow()
+            .find("docTitle")
+            .and_then(|dt| {
+                dt.borrow()
+                    .children
+                    .get(0)
+                    .and_then(|t| t.borrow().text.clone())
+            })
+            .unwrap_or_default();
 
         let mapnode = root
             .borrow()
