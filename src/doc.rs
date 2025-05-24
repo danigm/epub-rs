@@ -743,10 +743,10 @@ impl<R: Read + Seek> EpubDoc<R> {
     }
 
     fn fill_metadata_epub2(&mut self, elem: Rc<RefCell<xmlutils::XMLNode>>) {
-        // TODO: check against https://idpf.org/epub/20/spec/OPF_2.0_latest.htm
         for r in &elem.borrow().children {
             let item = r.borrow();
             if item.name.local_name == "meta" {
+                // Parse XHTML1.1 <meta>
                 if let (Some(k), Some(v)) = (item.get_attr("name"), item.get_attr("content")) {
                     if k == "cover" {
                         self.cover_id = Some(v.clone());
@@ -758,26 +758,34 @@ impl<R: Read + Seek> EpubDoc<R> {
                         lang: item.get_attr("lang"),
                         refined: Vec::new(),
                     });
-                } else if let Some(k) = item.get_attr("property") {
-                    let v = item.text.clone().unwrap_or_default();
-                    self.metadata.push(MetadataItem {
-                        id: item.get_attr("id"),
-                        property: k,
-                        text: v,
-                        lang: item.get_attr("lang"),
-                        refined: Vec::new(),
-                    });
                 }
             } else {
-                let k = &item.name.local_name;
-                let v = item.text.clone().unwrap_or_default();
-                self.metadata.push(MetadataItem {
-                    id: item.get_attr("id"),
-                    property: k.clone(),
-                    text: v,
-                    lang: item.get_attr("lang"),
-                    refined: Vec::new(),
-                });
+                if item.name.prefix_ref().is_some_and(|pre| pre == "dc") {
+                    let property = item.name.local_name.clone();
+                    let text = item.text.clone().unwrap_or_default();
+                    self.metadata.push(MetadataItem {
+                        id: item.get_attr("id"),
+                        property,
+                        text,
+                        lang: item.get_attr("lang"),
+                        refined: item
+                            .attrs
+                            .iter()
+                            .filter_map(|attr| {
+                                if attr.name.prefix_ref().is_some_and(|pre| pre == "opf") {
+                                    Some(MetadataRefinement {
+                                        property: attr.name.local_name.clone(),
+                                        text: attr.value.clone(),
+                                        lang: None,
+                                        attributes: HashMap::new(),
+                                    })
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect(),
+                    });
+                }
             }
         }
     }
