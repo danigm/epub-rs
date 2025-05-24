@@ -2,13 +2,19 @@
 //!
 //! Provides easy methods to navigate through the epub content, cover,
 //! chapters, etc.
+//!
+//! Main references to EPUB specs:
+//! - https://www.w3.org/TR/epub-33
+//! - https://idpf.org/epub/201
 
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::{Read, Seek};
 use std::path::{Component, Path, PathBuf};
+use std::rc::Rc;
 use xmlutils::XMLError;
 
 use crate::archive::EpubArchive;
@@ -66,6 +72,23 @@ impl PartialEq for NavPoint {
 }
 
 #[derive(Clone, Debug)]
+pub struct MetadataRefinement {
+    pub property: String,
+    pub text: String,
+    pub lang: Option<String>,
+    pub attributes: HashMap<String, String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct MetadataItem {
+    pub(crate) id: Option<String>,
+    pub property: String,
+    pub text: String,
+    pub lang: Option<String>,
+    pub refined: Vec<MetadataRefinement>,
+}
+
+#[derive(Clone, Debug)]
 pub struct SpineItem {
     pub idref: String,
     pub id: Option<String>,
@@ -97,7 +120,7 @@ pub struct EpubDoc<R: Read + Seek> {
     /// title of toc
     pub toc_title: String,
 
-    /// The epub metadata stored as key -> value
+    /// The epub metadata.
     ///
     /// # Examples
     ///
@@ -105,10 +128,12 @@ pub struct EpubDoc<R: Read + Seek> {
     /// # use epub::doc::EpubDoc;
     /// # let doc = EpubDoc::new("test.epub");
     /// # let doc = doc.unwrap();
-    /// let title = doc.metadata.get("title");
-    /// assert_eq!(title.unwrap(), &vec!["Todo es mío".to_string()]);
+    /// let title = doc.metadata.iter().find(|d| d.property == "title");
+    /// assert_eq!(title.unwrap().text, "Todo es mío");
     /// ```
-    pub metadata: HashMap<String, Vec<String>>,
+    ///
+    /// To simply find the first matching metadata's value, see also `mdata(property)`.
+    pub metadata: Vec<MetadataItem>,
 
     /// root file base path
     pub root_base: PathBuf,
@@ -220,7 +245,7 @@ impl<R: Read + Seek> EpubDoc<R> {
             toc: vec![],
             toc_title: String::new(),
             resources: HashMap::new(),
-            metadata: HashMap::new(),
+            metadata: Vec::new(),
             root_file: root_file.clone(),
             root_base: base_path.to_path_buf(),
             current: 0,
@@ -243,7 +268,13 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// let title = doc.mdata("title");
     /// assert_eq!(title.unwrap(), "Todo es mío");
     pub fn mdata(&self, name: &str) -> Option<String> {
-        self.metadata.get(name).and_then(|v| v.get(0).cloned())
+        self.metadata.iter().find_map(|data| {
+            if data.property == name {
+                Some(data.text.clone())
+            } else {
+                None
+            }
+        })
     }
 
     /// Returns the id of the epub cover.
@@ -688,46 +719,67 @@ impl<R: Read + Seek> EpubDoc<R> {
         }
 
         // metadata
-        let metadata = root
+        let metadata_elem = root
             .borrow()
             .find("metadata")
             .ok_or(DocError::InvalidEpub)?;
-        for r in &metadata.borrow().children {
+        if let EpubVersion::Version3_0 = self.version {
+            // TODO: EPUB3
+        } else {
+            self.fill_metadata_epub2(metadata_elem);
+            let identifier = if let Some(uid) = unique_identifier_id {
+                // find identifier with id
+                self.metadata.iter().find(|d| {
+                    d.property == "identifier" && d.id.as_ref().is_some_and(|id| id == uid)
+                })
+            } else {
+                // unique-identifier is required. to not abort, fallback with the first identifier.
+                self.metadata.iter().find(|d| d.property == "identifier")
+            };
+            self.unique_identifier = identifier.map(|data| data.text.clone());
+        }
+
+        Ok(())
+    }
+
+    fn fill_metadata_epub2(&mut self, elem: Rc<RefCell<xmlutils::XMLNode>>) {
+        // TODO: check against https://idpf.org/epub/20/spec/OPF_2.0_latest.htm
+        for r in &elem.borrow().children {
             let item = r.borrow();
             if item.name.local_name == "meta" {
                 if let (Some(k), Some(v)) = (item.get_attr("name"), item.get_attr("content")) {
                     if k == "cover" {
                         self.cover_id = Some(v.clone());
                     }
-                    self.metadata.entry(k).or_default().push(v);
+                    self.metadata.push(MetadataItem {
+                        id: item.get_attr("id"),
+                        property: k,
+                        text: v,
+                        lang: item.get_attr("lang"),
+                        refined: Vec::new(),
+                    });
                 } else if let Some(k) = item.get_attr("property") {
                     let v = item.text.clone().unwrap_or_default();
-                    self.metadata.entry(k).or_default().push(v);
+                    self.metadata.push(MetadataItem {
+                        id: item.get_attr("id"),
+                        property: k,
+                        text: v,
+                        lang: item.get_attr("lang"),
+                        refined: Vec::new(),
+                    });
                 }
             } else {
                 let k = &item.name.local_name;
                 let v = item.text.clone().unwrap_or_default();
-                if k == "identifier"
-                    && self.unique_identifier.is_none()
-                    && unique_identifier_id.is_some()
-                {
-                    if let Some(id) = item.get_attr("id") {
-                        if &id == unique_identifier_id.as_ref().unwrap() {
-                            self.unique_identifier = Some(v.to_string());
-                        }
-                    }
-                }
-                if self.metadata.contains_key(k) {
-                    if let Some(arr) = self.metadata.get_mut(k) {
-                        arr.push(v);
-                    }
-                } else {
-                    self.metadata.insert(k.clone(), vec![v]);
-                }
+                self.metadata.push(MetadataItem {
+                    id: item.get_attr("id"),
+                    property: k.clone(),
+                    text: v,
+                    lang: item.get_attr("lang"),
+                    refined: Vec::new(),
+                });
             }
         }
-
-        Ok(())
     }
 
     // Forcibly converts separators in a filepath to unix separators to
