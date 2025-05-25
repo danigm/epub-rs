@@ -38,8 +38,21 @@ fn doc_open() {
     }
 
     {
+        let identifier = doc.mdata("identifier").unwrap();
+        let scheme = identifier.refinement("scheme").unwrap();
+        assert_eq!(scheme.value, "UUID");
+    }
+
+    {
         let title = doc.mdata("title");
-        assert_eq!(title.unwrap(), "Todo es mío");
+        assert_eq!(title.unwrap().value, "Todo es mío");
+    }
+
+    {
+        let creator = doc.mdata("creator").unwrap();
+        assert_eq!(creator.value, "Daniel Garcia");
+        let role = creator.refinement("role").unwrap();
+        assert_eq!(role.value, "aut");
     }
 
     {
@@ -49,7 +62,7 @@ fn doc_open() {
 
     {
         let modified = doc.mdata("dcterms:modified");
-        assert_eq!(modified.unwrap(), "2015-08-10T18:12:03Z");
+        assert_eq!(modified.unwrap().value, "2015-08-10T18:12:03Z");
     }
 
     {

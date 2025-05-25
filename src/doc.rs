@@ -94,6 +94,12 @@ pub struct MetadataItem {
     pub refined: Vec<MetadataRefinement>,
 }
 
+impl MetadataItem {
+    pub fn refinement(&self, property: &str) -> Option<&MetadataRefinement> {
+        self.refined.iter().find(|r| r.property == property)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct SpineItem {
     pub idref: String,
@@ -143,7 +149,7 @@ pub struct EpubDoc<R: Read + Seek> {
     /// assert_eq!(title.unwrap().value, "Todo es mío");
     /// ```
     ///
-    /// To simply find the first matching metadata's value, see also `mdata(property)`.
+    /// See `mdata(property)` for a convenient method returning the first matching item.
     pub metadata: Vec<MetadataItem>,
 
     /// root file base path
@@ -268,7 +274,7 @@ impl<R: Read + Seek> EpubDoc<R> {
         Ok(doc)
     }
 
-    /// Returns the first metadata found with this name.
+    /// Returns the first metadata found with this property name.
     ///
     /// # Examples
     ///
@@ -277,15 +283,9 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// # let doc = EpubDoc::new("test.epub");
     /// # let doc = doc.unwrap();
     /// let title = doc.mdata("title");
-    /// assert_eq!(title.unwrap(), "Todo es mío");
-    pub fn mdata(&self, name: &str) -> Option<String> {
-        self.metadata.iter().find_map(|data| {
-            if data.property == name {
-                Some(data.value.clone())
-            } else {
-                None
-            }
-        })
+    /// assert_eq!(title.unwrap().value, "Todo es mío");
+    pub fn mdata(&self, property: &str) -> Option<&MetadataItem> {
+        self.metadata.iter().find(|data| data.property == property)
     }
 
     /// Returns the id of the epub cover.
@@ -345,7 +345,7 @@ impl<R: Read + Seek> EpubDoc<R> {
             self.mdata("dcterms:modified"),
         ) {
             (Some(unique_identifier), Some(modified)) => {
-                Some(format!("{}@{}", unique_identifier, modified))
+                Some(format!("{}@{}", unique_identifier, modified.value))
             }
             _ => None,
         }
@@ -777,16 +777,11 @@ impl<R: Read + Seek> EpubDoc<R> {
                                     {
                                         let property = attr.name.local_name.clone();
                                         let value = attr.value.clone();
-                                        let scheme = if property == "scheme" {
-                                            Some(value.clone())
-                                        } else {
-                                            None
-                                        };
                                         Some(MetadataRefinement {
                                             property,
                                             value,
                                             lang: None,
-                                            scheme,
+                                            scheme: None,
                                         })
                                     } else {
                                         None
@@ -804,7 +799,9 @@ impl<R: Read + Seek> EpubDoc<R> {
                 }
 
                 // <meta>
-                (Some("http://www.idpf.org/2007/opf"), name) if name.eq_ignore_ascii_case("meta") => {
+                (Some("http://www.idpf.org/2007/opf"), name)
+                    if name.eq_ignore_ascii_case("meta") =>
+                {
                     if let Some(property) = item.get_attr("property") {
                         // EPUB3 <meta>, value in its text content
                         let value = item.text.clone().unwrap_or_default();
