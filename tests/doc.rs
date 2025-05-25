@@ -1,5 +1,6 @@
 use epub::doc::EpubDoc;
 use epub::doc::EpubVersion;
+use epub::doc::MetadataItem;
 use std::path::Path;
 
 #[test]
@@ -84,6 +85,27 @@ fn doc_open() {
     {
         let release_identifier = doc2.get_release_identifier();
         assert_eq!(None, release_identifier);
+    }
+}
+
+#[test]
+fn doc_open_epub3() {
+    let doc = EpubDoc::new("tests/docs/fatbf.epub");
+    assert!(doc.is_ok());
+    let doc = doc.unwrap();
+
+    {
+        // Test refinements
+        let mut iter = doc.metadata.iter();
+        let finder = |item: &&MetadataItem| item.property == "identifier";
+
+        let identifier = iter.find(finder).unwrap();
+        assert!(identifier.refined.is_empty());
+
+        let identifier = iter.find(finder).unwrap();
+        let ident_type = identifier.refinement("identifier-type").unwrap();
+        assert_eq!(ident_type.scheme, Some("onix:codelist5".to_string()));
+        assert_eq!(ident_type.value, "15");
     }
 }
 
