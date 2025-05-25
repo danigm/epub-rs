@@ -806,22 +806,21 @@ impl<R: Read + Seek> EpubDoc<R> {
                         // EPUB3 <meta>, value in its text content
                         let value = item.text.clone().unwrap_or_default();
                         let lang = item.get_attr("lang");
-                        if let Some(hash) = item.get_attr("refines") {
+                        if let Some(refines) = item.get_attr("refines") {
                             // refinement (subexpression in EPUB3 terminology)
-                            if let Some(tid) = hash.strip_prefix('#') {
-                                let scheme = item.get_attr("scheme");
-                                let refinement = MetadataRefinement {
-                                    property,
-                                    value,
-                                    lang,
-                                    scheme,
-                                };
-                                if let Some(refs) = refinements.get_mut(tid) {
-                                    refs.push(refinement);
-                                } else {
-                                    refinements.insert(tid.to_string(), vec![refinement]);
-                                }
-                            } // else ignore because meaning is unclear
+                            let tid = refines.strip_prefix('#').unwrap_or_else(|| &refines);
+                            let scheme = item.get_attr("scheme");
+                            let refinement = MetadataRefinement {
+                                property,
+                                value,
+                                lang,
+                                scheme,
+                            };
+                            if let Some(refs) = refinements.get_mut(tid) {
+                                refs.push(refinement);
+                            } else {
+                                refinements.insert(tid.to_string(), vec![refinement]);
+                            }
                         } else {
                             // primary
                             let id = item.get_attr("id");
