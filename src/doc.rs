@@ -7,14 +7,12 @@
 //! - https://www.w3.org/TR/epub-33
 //! - https://idpf.org/epub/201
 
-use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::{Read, Seek};
 use std::path::{Component, Path, PathBuf};
-use std::rc::Rc;
 use xmlutils::XMLError;
 
 use crate::archive::EpubArchive;
@@ -71,19 +69,27 @@ impl PartialEq for NavPoint {
     }
 }
 
+/// An EPUB3 metadata subexpression.
+/// It is associated with another metadata expression.
+/// The design follows EPUB3 but can be approximated when facing EPUB2 using attributes.
 #[derive(Clone, Debug)]
 pub struct MetadataRefinement {
     pub property: String,
-    pub text: String,
+    pub value: String,
     pub lang: Option<String>,
-    pub attributes: HashMap<String, String>,
+    pub scheme: Option<String>,
 }
 
+/// An EPUB3 Dublin Core metadata item.
+/// The design follows EPUB3's dcterms element but can draw information both
+/// dcterms and primary `<meta>` expressions.
+///
+/// When facing EPUB2, it also draws information from XHTML1.1 `<meta>`.
 #[derive(Clone, Debug)]
 pub struct MetadataItem {
     pub(crate) id: Option<String>,
     pub property: String,
-    pub text: String,
+    pub value: String,
     pub lang: Option<String>,
     pub refined: Vec<MetadataRefinement>,
 }
@@ -97,6 +103,11 @@ pub struct SpineItem {
 }
 
 /// Struct to control the epub document
+///
+/// The general policy for `EpubDoc` is to support both EPUB2 (commonly used)
+/// and EPUB3 (standard). Considering epub files that have mixed EPUB2 and
+/// EPUB3 features, the implementation of `EpubDoc` isn't strict and rejects
+/// something not in accordance with the specified version only when necessary.
 #[derive(Clone, Debug)]
 pub struct EpubDoc<R: Read + Seek> {
     /// the zip archive
@@ -129,7 +140,7 @@ pub struct EpubDoc<R: Read + Seek> {
     /// # let doc = EpubDoc::new("test.epub");
     /// # let doc = doc.unwrap();
     /// let title = doc.metadata.iter().find(|d| d.property == "title");
-    /// assert_eq!(title.unwrap().text, "Todo es mío");
+    /// assert_eq!(title.unwrap().value, "Todo es mío");
     /// ```
     ///
     /// To simply find the first matching metadata's value, see also `mdata(property)`.
@@ -270,7 +281,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     pub fn mdata(&self, name: &str) -> Option<String> {
         self.metadata.iter().find_map(|data| {
             if data.property == name {
-                Some(data.text.clone())
+                Some(data.value.clone())
             } else {
                 None
             }
@@ -723,71 +734,138 @@ impl<R: Read + Seek> EpubDoc<R> {
             .borrow()
             .find("metadata")
             .ok_or(DocError::InvalidEpub)?;
-        if let EpubVersion::Version3_0 = self.version {
-            // TODO: EPUB3
+        self.fill_metadata(&metadata_elem.borrow());
+
+        let identifier = if let Some(uid) = unique_identifier_id {
+            // find identifier with id
+            self.metadata
+                .iter()
+                .find(|d| d.property == "identifier" && d.id.as_ref().is_some_and(|id| id == uid))
         } else {
-            self.fill_metadata_epub2(metadata_elem);
-            let identifier = if let Some(uid) = unique_identifier_id {
-                // find identifier with id
-                self.metadata.iter().find(|d| {
-                    d.property == "identifier" && d.id.as_ref().is_some_and(|id| id == uid)
-                })
-            } else {
-                // unique-identifier is required. to not abort, fallback with the first identifier.
-                self.metadata.iter().find(|d| d.property == "identifier")
-            };
-            self.unique_identifier = identifier.map(|data| data.text.clone());
-        }
+            // fallback with the first identifier.
+            self.metadata.iter().find(|d| d.property == "identifier")
+        };
+        self.unique_identifier = identifier.map(|data| data.value.clone());
 
         Ok(())
     }
 
-    fn fill_metadata_epub2(&mut self, elem: Rc<RefCell<xmlutils::XMLNode>>) {
-        for r in &elem.borrow().children {
+    fn fill_metadata(&mut self, elem: &xmlutils::XMLNode) {
+        // refinements are inserted here with ID as key, these are later associated to metadata
+        let mut refinements: HashMap<String, Vec<MetadataRefinement>> = HashMap::new();
+        for r in &elem.children {
             let item = r.borrow();
-            if item.name.local_name == "meta" {
-                // Parse XHTML1.1 <meta>
-                if let (Some(k), Some(v)) = (item.get_attr("name"), item.get_attr("content")) {
-                    if k == "cover" {
-                        self.cover_id = Some(v.clone());
-                    }
+            // for each acceptable element, either push a metadata item or push a refinement
+            match (item.name.namespace_ref(), &item.name.local_name) {
+                // dcterms
+                (Some("http://purl.org/dc/elements/1.1/"), name) => {
+                    let id = item.get_attr("id");
+                    let lang = item.get_attr("lang");
+                    let property = name.clone();
+                    let value = item.text.clone().unwrap_or_default();
+
+                    let refined: Vec<MetadataRefinement> =
+                        if let EpubVersion::Version3_0 = self.version {
+                            vec![]
+                        } else {
+                            // treat it as EPUB2 dcterms, storing additional info in attributes
+                            item.attrs
+                                .iter()
+                                .filter_map(|attr| {
+                                    if let Some("http://www.idpf.org/2007/opf") =
+                                        attr.name.namespace_ref()
+                                    {
+                                        let property = attr.name.local_name.clone();
+                                        let value = attr.value.clone();
+                                        let scheme = if property == "scheme" {
+                                            Some(value.clone())
+                                        } else {
+                                            None
+                                        };
+                                        Some(MetadataRefinement {
+                                            property,
+                                            value,
+                                            lang: None,
+                                            scheme,
+                                        })
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect()
+                        };
                     self.metadata.push(MetadataItem {
-                        id: item.get_attr("id"),
-                        property: k,
-                        text: v,
-                        lang: item.get_attr("lang"),
-                        refined: Vec::new(),
-                    });
-                }
-            } else {
-                if item.name.prefix_ref().is_some_and(|pre| pre == "dc") {
-                    let property = item.name.local_name.clone();
-                    let text = item.text.clone().unwrap_or_default();
-                    self.metadata.push(MetadataItem {
-                        id: item.get_attr("id"),
+                        id,
                         property,
-                        text,
-                        lang: item.get_attr("lang"),
-                        refined: item
-                            .attrs
-                            .iter()
-                            .filter_map(|attr| {
-                                if attr.name.prefix_ref().is_some_and(|pre| pre == "opf") {
-                                    Some(MetadataRefinement {
-                                        property: attr.name.local_name.clone(),
-                                        text: attr.value.clone(),
-                                        lang: None,
-                                        attributes: HashMap::new(),
-                                    })
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect(),
+                        value,
+                        lang,
+                        refined,
                     });
                 }
+
+                // <meta>
+                (Some("http://www.idpf.org/2007/opf"), name) if name.eq_ignore_ascii_case("meta") => {
+                    if let Some(property) = item.get_attr("property") {
+                        // EPUB3 <meta>, value in its text content
+                        let value = item.text.clone().unwrap_or_default();
+                        let lang = item.get_attr("lang");
+                        if let Some(hash) = item.get_attr("refines") {
+                            // refinement (subexpression in EPUB3 terminology)
+                            if let Some(tid) = hash.strip_prefix('#') {
+                                let scheme = item.get_attr("scheme");
+                                let refinement = MetadataRefinement {
+                                    property,
+                                    value,
+                                    lang,
+                                    scheme,
+                                };
+                                if let Some(refs) = refinements.get_mut(tid) {
+                                    refs.push(refinement);
+                                } else {
+                                    refinements.insert(tid.to_string(), vec![refinement]);
+                                }
+                            } // else ignore because meaning is unclear
+                        } else {
+                            // primary
+                            let id = item.get_attr("id");
+                            self.metadata.push(MetadataItem {
+                                id,
+                                property,
+                                value,
+                                lang,
+                                refined: vec![],
+                            });
+                        }
+                    } else if let (Some(property), Some(value)) =
+                        (item.get_attr("name"), item.get_attr("content"))
+                    {
+                        // Common practice identifying cover in EPUB2
+                        if property == "cover" {
+                            self.cover_id = Some(value.clone());
+                        }
+                        // Legacy XHTML1.1 <meta>
+                        self.metadata.push(MetadataItem {
+                            id: None,
+                            property,
+                            value,
+                            lang: None,
+                            refined: vec![],
+                        });
+                    }
+                }
+
+                _ => (),
             }
         }
+
+        // associate refinements
+        self.metadata.iter_mut().for_each(|item| {
+            if let Some(id) = &item.id {
+                if let Some(mut refs) = refinements.remove(id) {
+                    item.refined.append(&mut refs);
+                }
+            }
+        });
     }
 
     // Forcibly converts separators in a filepath to unix separators to

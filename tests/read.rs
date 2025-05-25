@@ -45,7 +45,7 @@ fn bad_epub() {
         .iter()
         .filter_map(|d| {
             if d.property == "title" {
-                Some(d.text.clone())
+                Some(d.value.clone())
             } else {
                 None
             }
