@@ -33,7 +33,7 @@
 //! # let doc = EpubDoc::new("test.epub");
 //! # let doc = doc.unwrap();
 //! let title = doc.mdata("title");
-//! assert_eq!(title.unwrap(), "Todo es mío");
+//! assert_eq!(title.unwrap().value, "Todo es mío");
 //! ```
 //!
 //! ## Accessing resources

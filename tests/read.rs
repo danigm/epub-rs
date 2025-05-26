@@ -8,7 +8,7 @@ fn read_doc() {
     let mut doc = doc.unwrap();
 
     if let Some(title) = doc.mdata("title") {
-        println!("Book title: {}", title);
+        println!("Book title: {}", title.value);
     } else {
         println!("Book title not found");
     }
@@ -40,10 +40,21 @@ fn bad_epub() {
     let doc = EpubDoc::new(input_file);
     assert!(doc.is_ok());
     let doc = doc.unwrap();
-    if let Some(titles) = doc.metadata.get("title") {
+    let titles: Vec<String> = doc
+        .metadata
+        .iter()
+        .filter_map(|d| {
+            if d.property == "title" {
+                Some(d.value.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+    if !titles.is_empty() {
         assert_eq!(
             titles,
-            &vec!["Metamorphosis ".to_string(), "Metamorphosis2 ".to_string()]
+            vec!["Metamorphosis ".to_string(), "Metamorphosis2 ".to_string()]
         );
         println!("Book title: {:#?}", titles);
     } else {
