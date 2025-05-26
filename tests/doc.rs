@@ -22,7 +22,7 @@ fn doc_open() {
     assert_eq!(23, doc.resources.len());
     {
         let tpage = doc.resources.get("titlepage.xhtml");
-        assert_eq!(tpage.unwrap().0, Path::new("OEBPS/Text/titlepage.xhtml"));
+        assert_eq!(tpage.unwrap().path, Path::new("OEBPS/Text/titlepage.xhtml"));
     }
 
     {

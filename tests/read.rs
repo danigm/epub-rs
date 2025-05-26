@@ -17,7 +17,7 @@ fn read_doc() {
     {
         println!("resources:\n");
         for (k, v) in doc.resources.iter() {
-            println!("{}: {}\n * {}\n", k, v.1, v.0.display());
+            println!("{}: {}\n * {}\n", k, v.mime, v.path.display());
         }
         println!();
     }
