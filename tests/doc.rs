@@ -107,6 +107,18 @@ fn doc_open_epub3() {
         assert_eq!(ident_type.scheme, Some("onix:codelist5".to_string()));
         assert_eq!(ident_type.value, "15");
     }
+
+    {
+        // Test cover
+        let cover_mime = doc.get_cover_id().and_then(|id| doc.get_resource_mime(&id));
+        assert_eq!(cover_mime, Some("image/jpeg".to_string()));
+    }
+
+    {
+        // Test nav
+        let nav_mime = doc.get_nav_id().and_then(|id| doc.get_resource_mime(&id));
+        assert_eq!(nav_mime, Some("application/xhtml+xml".to_string()));
+    }
 }
 
 #[test]

@@ -170,9 +170,6 @@ pub struct EpubDoc<R: Read + Seek> {
 
     /// unique identifier
     pub unique_identifier: Option<String>,
-
-    /// The id of the cover, if any
-    pub cover_id: Option<String>,
 }
 
 /// A EpubDoc used for testing purposes
@@ -275,7 +272,6 @@ impl<R: Read + Seek> EpubDoc<R> {
             current: 0,
             extra_css: vec![],
             unique_identifier: None,
-            cover_id: None,
         };
         doc.fill_resources()?;
         Ok(doc)
@@ -297,8 +293,6 @@ impl<R: Read + Seek> EpubDoc<R> {
 
     /// Returns the id of the epub cover.
     ///
-    /// The cover is searched in the doc metadata, by the tag `<meta name="cover" value"..">`
-    ///
     /// # Examples
     ///
     /// ```rust
@@ -314,7 +308,40 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// This returns the cover id, which can be used to get the cover data.
     /// The id is not guaranteed to be valid.
     pub fn get_cover_id(&self) -> Option<String> {
-        self.cover_id.clone()
+        match self.version {
+            // EPUB3 requires zero or one cover-image resource
+            EpubVersion::Version3_0 => self.resources.iter().find_map(|(id, resource)| {
+                resource
+                    .properties
+                    .as_ref()
+                    .and_then(|ps| ps.split_ascii_whitespace().find(|p| *p == "cover-image"))
+                    .map(|_| id.clone())
+            }),
+            // EPUB2 doesn't include cover identification, but a common practice is `<meta name="cover">`
+            _ => self.mdata("cover").map(|item| item.value.clone()),
+        }
+    }
+
+    /// Returns the id of the navigation document (EPUB3 only).
+    ///
+    /// **Relationship with `toc`**:
+    /// "Navigation document" is a concept formalized in EPUB3, superseding NCX
+    /// format used in EPUB2. NCX is required in EPUB2 and not EPUB3, though
+    /// some authors provide both in the archive. `self.toc` (parsed from NCX)
+    /// and this are independent on each other.
+    pub fn get_nav_id(&self) -> Option<String> {
+        match self.version {
+            // EPUB3 requires exactly one nav resource
+            EpubVersion::Version3_0 => self.resources.iter().find_map(|(id, resource)| {
+                resource
+                    .properties
+                    .as_ref()
+                    .and_then(|ps| ps.split_ascii_whitespace().find(|p| *p == "nav"))
+                    .map(|_| id.clone())
+            }),
+            // The concept of navigation document doesn't exist in EPUB2.
+            _ => None,
+        }
     }
 
     /// Returns the cover's content and mime-type
@@ -712,15 +739,6 @@ impl<R: Read + Seek> EpubDoc<R> {
             .ok_or(DocError::InvalidEpub)?;
         for r in &manifest.borrow().children {
             let item = r.borrow();
-            if self.cover_id.is_none() {
-                if let (Some(id), Some(property)) =
-                    (item.get_attr("id"), item.get_attr("properties"))
-                {
-                    if property == "cover-image" {
-                        self.cover_id = Some(id);
-                    }
-                }
-            }
             let _ = self.insert_resource(&item);
         }
 
@@ -842,10 +860,6 @@ impl<R: Read + Seek> EpubDoc<R> {
                     } else if let (Some(property), Some(value)) =
                         (item.get_attr("name"), item.get_attr("content"))
                     {
-                        // Common practice identifying cover in EPUB2
-                        if property == "cover" {
-                            self.cover_id = Some(value.clone());
-                        }
                         // Legacy XHTML1.1 <meta>
                         self.metadata.push(MetadataItem {
                             id: None,
@@ -893,8 +907,7 @@ impl<R: Read + Seek> EpubDoc<R> {
         let mime = item
             .get_attr("media-type")
             .ok_or_else(|| XMLError::AttrNotFound("media-type".into()))?;
-        let properties = item
-            .get_attr("properties");
+        let properties = item.get_attr("properties");
 
         self.resources.insert(
             id,
@@ -912,8 +925,7 @@ impl<R: Read + Seek> EpubDoc<R> {
             .get_attr("idref")
             .ok_or_else(|| XMLError::AttrNotFound("idref".into()))?;
         let linear = item.get_attr("linear").unwrap_or("yes".into()) == "yes";
-        let properties = item
-            .get_attr("properties");
+        let properties = item.get_attr("properties");
         let id = item.get_attr("id");
         self.spine.push(SpineItem {
             idref,
