@@ -285,10 +285,18 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// # use epub::doc::EpubDoc;
     /// # let doc = EpubDoc::new("test.epub");
     /// # let doc = doc.unwrap();
-    /// let title = doc.mdata("title");
-    /// assert_eq!(title.unwrap().value, "Todo es mío");
+    /// let language = doc.mdata("language");
+    /// assert_eq!(language.unwrap().value, "es");
     pub fn mdata(&self, property: &str) -> Option<&MetadataItem> {
         self.metadata.iter().find(|data| data.property == property)
+    }
+
+    /// Returns the title.
+    ///
+    /// An EPUB file may provide multiple titles. This method only returns the
+    /// primary one. Access `metadata` directly to gain more control.
+    pub fn get_title(&self) -> Option<String> {
+        self.mdata("title").map(|item| item.value.clone())
     }
 
     /// Returns the id of the epub cover.

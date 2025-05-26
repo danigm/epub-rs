@@ -45,8 +45,8 @@ fn doc_open() {
     }
 
     {
-        let title = doc.mdata("title");
-        assert_eq!(title.unwrap().value, "Todo es mío");
+        let title = doc.get_title().unwrap_or_default();
+        assert_eq!(title, "Todo es mío");
     }
 
     {

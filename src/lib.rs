@@ -32,8 +32,8 @@
 //! # use epub::doc::EpubDoc;
 //! # let doc = EpubDoc::new("test.epub");
 //! # let doc = doc.unwrap();
-//! let title = doc.mdata("title");
-//! assert_eq!(title.unwrap().value, "Todo es mío");
+//! let language = doc.mdata("language");
+//! assert_eq!(language.unwrap().value, "es");
 //! ```
 //!
 //! ## Accessing resources

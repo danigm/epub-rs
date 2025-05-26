@@ -7,8 +7,8 @@ fn read_doc() {
     assert!(doc.is_ok());
     let mut doc = doc.unwrap();
 
-    if let Some(title) = doc.mdata("title") {
-        println!("Book title: {}", title.value);
+    if let Some(title) = doc.get_title() {
+        println!("Book title: {}", title);
     } else {
         println!("Book title not found");
     }
