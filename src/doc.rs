@@ -108,6 +108,13 @@ pub struct SpineItem {
     pub linear: bool,
 }
 
+#[derive(Clone, Debug)]
+pub struct ResourceItem {
+    pub path: PathBuf,
+    pub mime: String,
+    pub properties: Option<String>,
+}
+
 /// Struct to control the epub document
 ///
 /// The general policy for `EpubDoc` is to support both EPUB2 (commonly used)
@@ -129,7 +136,7 @@ pub struct EpubDoc<R: Read + Seek> {
     pub spine: Vec<SpineItem>,
 
     /// resource id -> (path, mime)
-    pub resources: HashMap<String, (PathBuf, String)>,
+    pub resources: HashMap<String, ResourceItem>,
 
     /// table of content, list of `NavPoint` in the toc.ncx
     pub toc: Vec<NavPoint>,
@@ -163,9 +170,6 @@ pub struct EpubDoc<R: Read + Seek> {
 
     /// unique identifier
     pub unique_identifier: Option<String>,
-
-    /// The id of the cover, if any
-    pub cover_id: Option<String>,
 }
 
 /// A EpubDoc used for testing purposes
@@ -268,7 +272,6 @@ impl<R: Read + Seek> EpubDoc<R> {
             current: 0,
             extra_css: vec![],
             unique_identifier: None,
-            cover_id: None,
         };
         doc.fill_resources()?;
         Ok(doc)
@@ -282,15 +285,21 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// # use epub::doc::EpubDoc;
     /// # let doc = EpubDoc::new("test.epub");
     /// # let doc = doc.unwrap();
-    /// let title = doc.mdata("title");
-    /// assert_eq!(title.unwrap().value, "Todo es mío");
+    /// let language = doc.mdata("language");
+    /// assert_eq!(language.unwrap().value, "es");
     pub fn mdata(&self, property: &str) -> Option<&MetadataItem> {
         self.metadata.iter().find(|data| data.property == property)
     }
 
-    /// Returns the id of the epub cover.
+    /// Returns the title.
     ///
-    /// The cover is searched in the doc metadata, by the tag `<meta name="cover" value"..">`
+    /// An EPUB file may provide multiple titles. This method only returns the
+    /// primary one. Access `metadata` directly to gain more control.
+    pub fn get_title(&self) -> Option<String> {
+        self.mdata("title").map(|item| item.value.clone())
+    }
+
+    /// Returns the id of the epub cover.
     ///
     /// # Examples
     ///
@@ -307,7 +316,40 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// This returns the cover id, which can be used to get the cover data.
     /// The id is not guaranteed to be valid.
     pub fn get_cover_id(&self) -> Option<String> {
-        self.cover_id.clone()
+        match self.version {
+            // EPUB3 requires zero or one cover-image resource
+            EpubVersion::Version3_0 => self.resources.iter().find_map(|(id, resource)| {
+                resource
+                    .properties
+                    .as_ref()
+                    .and_then(|ps| ps.split_ascii_whitespace().find(|p| *p == "cover-image"))
+                    .map(|_| id.clone())
+            }),
+            // EPUB2 doesn't include cover identification, but a common practice is `<meta name="cover">`
+            _ => self.mdata("cover").map(|item| item.value.clone()),
+        }
+    }
+
+    /// Returns the id of the navigation document (EPUB3 only).
+    ///
+    /// **Relationship with `toc`**:
+    /// "Navigation document" is a concept formalized in EPUB3, superseding NCX
+    /// format used in EPUB2. NCX is required in EPUB2 and not EPUB3, though
+    /// some authors provide both in the archive. `self.toc` (parsed from NCX)
+    /// and this are independent on each other.
+    pub fn get_nav_id(&self) -> Option<String> {
+        match self.version {
+            // EPUB3 requires exactly one nav resource
+            EpubVersion::Version3_0 => self.resources.iter().find_map(|(id, resource)| {
+                resource
+                    .properties
+                    .as_ref()
+                    .and_then(|ps| ps.split_ascii_whitespace().find(|p| *p == "nav"))
+                    .map(|_| id.clone())
+            }),
+            // The concept of navigation document doesn't exist in EPUB2.
+            _ => None,
+        }
     }
 
     /// Returns the cover's content and mime-type
@@ -362,7 +404,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     ///
     /// Returns [`None`] if the id doesn't exists in the epub
     pub fn get_resource(&mut self, id: &str) -> Option<(Vec<u8>, String)> {
-        let (path, mime) = self.resources.get(id)?;
+        let ResourceItem { path, mime, .. } = self.resources.get(id)?;
         let path = path.clone();
         let mime = mime.clone();
         let content = self.get_resource_by_path(&path)?;
@@ -380,7 +422,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     ///
     /// Returns [`None`] if the id doesn't exists in the epub
     pub fn get_resource_str(&mut self, id: &str) -> Option<(String, String)> {
-        let (path, mime) = self.resources.get(id)?;
+        let ResourceItem { path, mime, .. } = self.resources.get(id)?;
         let mime = mime.clone();
         let path = path.clone();
         let content = self.get_resource_str_by_path(path)?;
@@ -401,7 +443,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     ///
     /// Returns [`None`] the resource can't be found.
     pub fn get_resource_mime(&self, id: &str) -> Option<String> {
-        self.resources.get(id).map(|r| r.1.clone())
+        self.resources.get(id).map(|r| r.mime.clone())
     }
 
     /// Returns the resource mime searching by source full path
@@ -421,8 +463,8 @@ impl<R: Read + Seek> EpubDoc<R> {
         let path = path.as_ref();
 
         self.resources.iter().find_map(|(_, r)| {
-            if r.0 == path {
-                Some(r.1.to_string())
+            if r.path == path {
+                Some(r.mime.clone())
             } else {
                 None
             }
@@ -525,7 +567,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// Can return [`None`] if the epub is broken.
     pub fn get_current_path(&self) -> Option<PathBuf> {
         let current_id = self.get_current_id()?;
-        self.resources.get(&current_id).map(|r| r.0.clone())
+        self.resources.get(&current_id).map(|r| r.path.clone())
     }
 
     /// Returns the current chapter id
@@ -670,7 +712,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     /// This method is useful to convert a toc [`NavPoint`] content to a chapter number
     /// to be able to navigate easily
     pub fn resource_uri_to_chapter(&self, uri: &PathBuf) -> Option<usize> {
-        for (k, (path, _mime)) in &self.resources {
+        for (k, ResourceItem { path, .. }) in &self.resources {
             if path == uri {
                 return self.resource_id_to_chapter(k);
             }
@@ -705,15 +747,6 @@ impl<R: Read + Seek> EpubDoc<R> {
             .ok_or(DocError::InvalidEpub)?;
         for r in &manifest.borrow().children {
             let item = r.borrow();
-            if self.cover_id.is_none() {
-                if let (Some(id), Some(property)) =
-                    (item.get_attr("id"), item.get_attr("properties"))
-                {
-                    if property == "cover-image" {
-                        self.cover_id = Some(id);
-                    }
-                }
-            }
             let _ = self.insert_resource(&item);
         }
 
@@ -835,10 +868,6 @@ impl<R: Read + Seek> EpubDoc<R> {
                     } else if let (Some(property), Some(value)) =
                         (item.get_attr("name"), item.get_attr("content"))
                     {
-                        // Common practice identifying cover in EPUB2
-                        if property == "cover" {
-                            self.cover_id = Some(value.clone());
-                        }
                         // Legacy XHTML1.1 <meta>
                         self.metadata.push(MetadataItem {
                             id: None,
@@ -883,12 +912,19 @@ impl<R: Read + Seek> EpubDoc<R> {
         let href = item
             .get_attr("href")
             .ok_or_else(|| XMLError::AttrNotFound("href".into()))?;
-        let mtype = item
+        let mime = item
             .get_attr("media-type")
             .ok_or_else(|| XMLError::AttrNotFound("media-type".into()))?;
+        let properties = item.get_attr("properties");
 
-        self.resources
-            .insert(id, (self.convert_path_seps(href), mtype));
+        self.resources.insert(
+            id,
+            ResourceItem {
+                path: self.convert_path_seps(href),
+                mime,
+                properties,
+            },
+        );
         Ok(())
     }
 
@@ -911,7 +947,7 @@ impl<R: Read + Seek> EpubDoc<R> {
     fn fill_toc(&mut self, id: &str) -> Result<(), DocError> {
         let toc_res = self.resources.get(id).ok_or(DocError::InvalidEpub)?; // this should be turned into it's own error type, but
 
-        let container = self.archive.get_entry(&toc_res.0)?;
+        let container = self.archive.get_entry(&toc_res.path)?;
         let root = xmlutils::XMLReader::parse(container.as_slice())?;
 
         self.toc_title = root

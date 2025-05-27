@@ -22,7 +22,7 @@ fn doc_open() {
     assert_eq!(23, doc.resources.len());
     {
         let tpage = doc.resources.get("titlepage.xhtml");
-        assert_eq!(tpage.unwrap().0, Path::new("OEBPS/Text/titlepage.xhtml"));
+        assert_eq!(tpage.unwrap().path, Path::new("OEBPS/Text/titlepage.xhtml"));
     }
 
     {
@@ -45,8 +45,8 @@ fn doc_open() {
     }
 
     {
-        let title = doc.mdata("title");
-        assert_eq!(title.unwrap().value, "Todo es mío");
+        let title = doc.get_title().unwrap_or_default();
+        assert_eq!(title, "Todo es mío");
     }
 
     {
@@ -106,6 +106,18 @@ fn doc_open_epub3() {
         let ident_type = identifier.refinement("identifier-type").unwrap();
         assert_eq!(ident_type.scheme, Some("onix:codelist5".to_string()));
         assert_eq!(ident_type.value, "15");
+    }
+
+    {
+        // Test cover
+        let cover_mime = doc.get_cover_id().and_then(|id| doc.get_resource_mime(&id));
+        assert_eq!(cover_mime, Some("image/jpeg".to_string()));
+    }
+
+    {
+        // Test nav
+        let nav_mime = doc.get_nav_id().and_then(|id| doc.get_resource_mime(&id));
+        assert_eq!(nav_mime, Some("application/xhtml+xml".to_string()));
     }
 }
 
