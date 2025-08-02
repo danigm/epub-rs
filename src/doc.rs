@@ -48,7 +48,7 @@ pub struct NavPoint {
     /// nested navpoints
     pub children: Vec<NavPoint>,
     /// the order in the toc
-    pub play_order: usize,
+    pub play_order: Option<usize>,
 }
 
 impl Ord for NavPoint {
@@ -983,7 +983,9 @@ impl<R: Read + Seek> EpubDoc<R> {
             if item.name.local_name != "navPoint" {
                 continue;
             }
-            let play_order = item.get_attr("playOrder").and_then(|n| n.parse().ok());
+            let play_order = item
+                .get_attr("playOrder")
+                .and_then(|n| n.parse::<usize>().ok());
             let content = item
                 .find("content")
                 .and_then(|c| c.borrow().get_attr("src").map(|p| self.root_base.join(p)));
@@ -995,12 +997,12 @@ impl<R: Read + Seek> EpubDoc<R> {
                     .and_then(|t| t.borrow().text.clone())
             });
 
-            if let (Some(o), Some(c), Some(l)) = (play_order, content, label) {
+            if let (order, Some(content_path), Some(label_text)) = (play_order, content, label) {
                 let navpoint = NavPoint {
-                    label: l.clone(),
-                    content: c.clone(),
+                    label: label_text.clone(),
+                    content: content_path.clone(),
                     children: self.get_navpoints(&item),
-                    play_order: o,
+                    play_order: order,
                 };
                 navpoints.push(navpoint);
             }

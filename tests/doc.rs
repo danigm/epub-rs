@@ -131,7 +131,7 @@ fn toc_test() {
     for nav in doc.toc.iter() {
         let chapter = doc.resource_uri_to_chapter(&nav.content);
         assert!(chapter.is_some());
-        assert_eq!(nav.play_order, chapter.unwrap());
+        assert_eq!(nav.play_order.unwrap(), chapter.unwrap());
     }
 }
 
@@ -142,6 +142,24 @@ fn toc_title_test() {
     let doc = doc.unwrap();
 
     assert!(doc.toc_title == "Todo es mío");
+}
+
+#[test]
+fn test_toc_play_order() {
+    let doc = EpubDoc::new("test.epub");
+    assert!(doc.is_ok());
+    let doc = doc.unwrap();
+
+    assert!(!doc.toc.is_empty());
+    let mut previous_order = None;
+    for nav in doc.toc.iter() {
+        nav.play_order.map(|order| {
+            if let Some(prev) = previous_order {
+                assert!(prev < order, "Play order is not increasing");
+            }
+            previous_order = Some(order);
+        });
+    }
 }
 
 #[test]
