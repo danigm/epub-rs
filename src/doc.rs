@@ -185,16 +185,17 @@ impl EpubDoc<std::io::Cursor<Vec<u8>>> {
         let archive = EpubArchive::from_reader(std::io::Cursor::new(data))?;
         Ok(Self {
             archive,
+            version: EpubVersion::Version2_0,
             spine: vec![],
             toc: vec![],
+            toc_title: String::new(),
             resources: HashMap::new(),
-            metadata: HashMap::new(),
+            metadata: Vec::new(),
             root_file: PathBuf::new(),
             root_base: PathBuf::new(),
             current: 0,
             extra_css: vec![],
             unique_identifier: None,
-            cover_id: None,
         })
     }
 }
