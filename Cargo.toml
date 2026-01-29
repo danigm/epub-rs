@@ -6,7 +6,7 @@ Library to support the reading of epub files.
 documentation = "https://docs.rs/epub/"
 exclude = ["test.epub"]
 keywords = ["epub", "ebook"]
-license = "GPL-3.0"
+license = "GPL-3.0-or-later"
 name = "epub"
 repository = "https://github.com/danigm/epub-rs.git"
 version = "2.1.5"
