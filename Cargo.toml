@@ -21,7 +21,7 @@ thiserror = "2.0.17"
 mock = []
 
 [dependencies.zip]
-version = "3.0.0"
+version = "9"
 default-features = false
 features = [
     "deflate",

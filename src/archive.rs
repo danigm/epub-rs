@@ -3,6 +3,7 @@
 //! Provides easy methods to navigate through the epub parts and to get
 //! the content as string.
 
+use std::borrow::Cow;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
@@ -60,7 +61,7 @@ impl<R: Read + Seek> EpubArchive<R> {
     pub fn from_reader(reader: R) -> Result<Self, ArchiveError> {
         let zip = zip::ZipArchive::new(reader)?;
 
-        let files: Vec<String> = zip.file_names().map(String::from).collect();
+        let files: Vec<String> = zip.file_names().filter_map(Result::ok).map(Cow::into_owned).collect();
 
         Ok(Self {
             zip,
